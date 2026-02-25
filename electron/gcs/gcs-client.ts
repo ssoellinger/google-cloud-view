@@ -87,7 +87,7 @@ export class GcsClient {
       const response = await fetch(url, {
         method,
         headers,
-        body: body ?? undefined,
+        body: body ? new Uint8Array(body) : undefined,
         signal: controller.signal,
       });
 

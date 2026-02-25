@@ -19,7 +19,7 @@ export function Breadcrumb({ prefix, onNavigate }: Props) {
   return (
     <div style={styles.container}>
       {crumbs.map((crumb, i) => (
-        <span key={crumb.path}>
+        <span key={crumb.path} style={styles.crumbWrap}>
           {i > 0 && <span style={styles.sep}>/</span>}
           {i < crumbs.length - 1 ? (
             <button style={styles.link} onClick={() => onNavigate(crumb.path)}>
@@ -40,25 +40,34 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 2,
     fontSize: 14,
-    padding: '8px 0',
+    padding: '10px 0',
     flexWrap: 'wrap',
+  },
+  crumbWrap: {
+    display: 'inline-flex',
+    alignItems: 'center',
   },
   link: {
     background: 'none',
     border: 'none',
-    color: '#4285f4',
+    color: '#6c5ce7',
     cursor: 'pointer',
-    padding: '2px 4px',
+    padding: '3px 6px',
     fontSize: 14,
-    borderRadius: 3,
+    borderRadius: 4,
+    fontWeight: 500,
+    transition: 'background 0.15s',
   },
   current: {
-    color: '#1a1a1a',
+    color: '#2d3436',
     fontWeight: 600,
-    padding: '2px 4px',
+    padding: '3px 6px',
+    background: '#f0edff',
+    borderRadius: 4,
   },
   sep: {
-    color: '#999',
-    margin: '0 2px',
+    color: '#b2bec3',
+    margin: '0 1px',
+    fontSize: 13,
   },
 };

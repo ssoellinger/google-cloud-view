@@ -1,27 +1,33 @@
 import { useState } from 'react';
-import type { GcsObject, ListResult } from '../hooks/useGcs';
+import type { TreeNode } from '../hooks/useGcs';
 import { Breadcrumb } from './Breadcrumb';
 import { Toolbar } from './Toolbar';
 import { FileRow } from './FileRow';
 
 interface Props {
-  items: ListResult;
+  treeData: TreeNode[];
+  expandedPaths: Set<string>;
   currentPrefix: string;
   loading: boolean;
   error: string | null;
   onNavigate: (prefix: string) => void;
-  onUpload: () => void;
+  onUpload: (targetPrefix?: string) => void;
   onRefresh: () => void;
   onDownload: (key: string) => void;
   onDelete: (keys: string[]) => void;
-  onRename: (oldKey: string, newKey: string) => void;
-  onCreateFolder: (name: string) => void;
+  onMove: (sourceKey: string, destKey: string) => void;
+  onCreateFolder: (name: string, targetPrefix?: string) => void;
+  onCreateSubfolder: (parentPrefix: string, folderName: string) => void;
   onDisconnect: () => void;
+  onToggleFolder: (prefix: string) => void;
+  onExpandAll: () => void;
+  onCollapseAll: () => void;
 }
 
 export function FileBrowser({
-  items, currentPrefix, loading, error,
-  onNavigate, onUpload, onRefresh, onDownload, onDelete, onRename, onCreateFolder, onDisconnect,
+  treeData, expandedPaths, currentPrefix, loading, error,
+  onNavigate, onUpload, onRefresh, onDownload, onDelete, onMove, onCreateFolder,
+  onCreateSubfolder, onDisconnect, onToggleFolder, onExpandAll, onCollapseAll,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -34,13 +40,22 @@ export function FileBrowser({
     });
   };
 
+  const collectVisibleKeys = (nodes: TreeNode[]): string[] => {
+    const keys: string[] = [];
+    for (const node of nodes) {
+      keys.push(node.fullPath);
+      if (node.isFolder && expandedPaths.has(node.fullPath) && node.children) {
+        keys.push(...collectVisibleKeys(node.children));
+      }
+    }
+    return keys;
+  };
+
+  const visibleKeys = collectVisibleKeys(treeData);
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const all = new Set([
-        ...items.folders,
-        ...items.objects.map(o => o.key),
-      ]);
-      setSelected(all);
+      setSelected(new Set(visibleKeys));
     } else {
       setSelected(new Set());
     }
@@ -56,19 +71,63 @@ export function FileBrowser({
     setConfirmDelete(false);
   };
 
-  const totalItems = items.folders.length + items.objects.length;
-  const allSelected = totalItems > 0 && selected.size === totalItems;
-
-  // Extract display name from a folder prefix
-  const folderName = (prefix: string) => {
-    const parts = prefix.replace(/\/$/, '').split('/');
-    return parts[parts.length - 1];
+  const handleTableDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const sourceKey = e.dataTransfer.getData('text/plain');
+    if (!sourceKey) return;
+    const fileName = sourceKey.replace(/\/$/, '').split('/').pop()!;
+    const isSourceFolder = sourceKey.endsWith('/');
+    const destKey = currentPrefix + fileName + (isSourceFolder ? '/' : '');
+    if (sourceKey !== destKey) {
+      onMove(sourceKey, destKey);
+    }
   };
 
-  // Extract display name from an object key
-  const objectName = (key: string) => {
-    const parts = key.split('/');
-    return parts[parts.length - 1];
+  const handleTableDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const allSelected = visibleKeys.length > 0 && selected.size === visibleKeys.length;
+
+  const selectedFolders = Array.from(selected).filter(k => k.endsWith('/'));
+  const targetPrefix = selectedFolders.length === 1 ? selectedFolders[0] : undefined;
+  const targetLabel = targetPrefix
+    ? targetPrefix.replace(/\/$/, '').split('/').pop()!
+    : undefined;
+
+  const renderTree = (nodes: TreeNode[], depth: number): React.ReactNode[] => {
+    const rows: React.ReactNode[] = [];
+    const folders = nodes.filter(n => n.isFolder);
+    const files = nodes.filter(n => !n.isFolder);
+
+    for (const node of [...folders, ...files]) {
+      const isExpanded = expandedPaths.has(node.fullPath);
+      rows.push(
+        <FileRow
+          key={node.fullPath}
+          name={node.name}
+          objectKey={node.fullPath}
+          size={node.size}
+          lastModified={node.lastModified}
+          isFolder={node.isFolder}
+          isSelected={selected.has(node.fullPath)}
+          currentPrefix={currentPrefix}
+          depth={depth}
+          isExpanded={isExpanded}
+          hasChildren={node.isFolder ? (node.childrenLoaded ? (node.children ?? []).length > 0 : undefined) : false}
+          onToggleExpand={node.isFolder ? () => onToggleFolder(node.fullPath) : undefined}
+          onSelect={handleSelect}
+          onDownload={onDownload}
+          onMove={onMove}
+          onCreateSubfolder={node.isFolder ? onCreateSubfolder : undefined}
+        />
+      );
+      if (node.isFolder && isExpanded && node.children) {
+        rows.push(...renderTree(node.children, depth + 1));
+      }
+    }
+    return rows;
   };
 
   return (
@@ -78,26 +137,33 @@ export function FileBrowser({
         <button style={styles.disconnectBtn} onClick={onDisconnect}>Disconnect</button>
       </div>
       <Toolbar
-        onUpload={onUpload}
+        onUpload={() => onUpload(targetPrefix)}
         onRefresh={onRefresh}
         onDelete={handleDelete}
-        onCreateFolder={onCreateFolder}
+        onCreateFolder={(name) => onCreateFolder(name, targetPrefix)}
         hasSelection={selected.size > 0}
         loading={loading}
+        onExpandAll={onExpandAll}
+        onCollapseAll={onCollapseAll}
+        targetFolderName={targetLabel}
       />
       {confirmDelete && (
         <div style={styles.confirmBar}>
-          Delete {selected.size} item(s)? Click "Delete Selected" again to confirm.
+          <span>Delete <strong>{selected.size}</strong> item(s)? Click "Delete Selected" again to confirm.</span>
           <button style={styles.cancelBtn} onClick={() => setConfirmDelete(false)}>Cancel</button>
         </div>
       )}
       {error && <div style={styles.error}>{error}</div>}
       {loading && <div style={styles.spinner}>Loading...</div>}
-      <div style={styles.tableWrap}>
+      <div
+        style={styles.tableWrap}
+        onDragOver={handleTableDragOver}
+        onDrop={handleTableDrop}
+      >
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={styles.th}>
+              <th style={{ ...styles.th, width: 36 }}>
                 <input type="checkbox" checked={allSelected} onChange={e => handleSelectAll(e.target.checked)} />
               </th>
               <th style={{ ...styles.th, ...styles.nameCol }}>Name</th>
@@ -107,41 +173,13 @@ export function FileBrowser({
             </tr>
           </thead>
           <tbody>
-            {items.folders.map(prefix => (
-              <FileRow
-                key={prefix}
-                name={folderName(prefix)}
-                objectKey={prefix}
-                size={0}
-                lastModified=""
-                isFolder={true}
-                isSelected={selected.has(prefix)}
-                currentPrefix={currentPrefix}
-                onSelect={handleSelect}
-                onNavigate={onNavigate}
-                onDownload={onDownload}
-                onRename={onRename}
-              />
-            ))}
-            {items.objects.map(obj => (
-              <FileRow
-                key={obj.key}
-                name={objectName(obj.key)}
-                objectKey={obj.key}
-                size={obj.size}
-                lastModified={obj.lastModified}
-                isFolder={false}
-                isSelected={selected.has(obj.key)}
-                currentPrefix={currentPrefix}
-                onSelect={handleSelect}
-                onNavigate={onNavigate}
-                onDownload={onDownload}
-                onRename={onRename}
-              />
-            ))}
-            {!loading && totalItems === 0 && (
+            {renderTree(treeData, 0)}
+            {!loading && treeData.length === 0 && (
               <tr>
-                <td colSpan={5} style={styles.empty}>This folder is empty</td>
+                <td colSpan={5} style={styles.empty}>
+                  <div style={{ fontSize: 32, marginBottom: 8, color: '#dfe6e9' }}>&#128193;</div>
+                  This folder is empty
+                </td>
               </tr>
             )}
           </tbody>
@@ -156,28 +194,29 @@ const styles: Record<string, React.CSSProperties> = {
     height: '100vh',
     display: 'flex',
     flexDirection: 'column',
-    padding: '0 16px',
-    background: '#fafafa',
+    padding: '0 20px',
+    background: '#f5f6fa',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '8px 0',
-    borderBottom: '1px solid #e0e0e0',
+    padding: '4px 0',
+    borderBottom: '1px solid #eef0f4',
   },
   disconnectBtn: {
-    padding: '5px 12px',
+    padding: '6px 14px',
     background: '#fff',
-    border: '1px solid #d0d0d0',
-    borderRadius: 4,
+    border: '1.5px solid #e0e4ea',
+    borderRadius: 8,
     fontSize: 12,
-    cursor: 'pointer',
-    color: '#666',
+    color: '#636e72',
+    fontWeight: 500,
   },
   tableWrap: {
     flex: 1,
     overflow: 'auto',
+    marginTop: 4,
   },
   table: {
     width: '100%',
@@ -185,53 +224,62 @@ const styles: Record<string, React.CSSProperties> = {
   },
   th: {
     textAlign: 'left',
-    padding: '10px 12px',
-    fontSize: 12,
-    fontWeight: 600,
-    color: '#666',
-    borderBottom: '2px solid #e0e0e0',
-    background: '#fafafa',
+    padding: '10px 14px',
+    fontSize: 11,
+    fontWeight: 700,
+    color: '#b2bec3',
+    textTransform: 'uppercase',
+    letterSpacing: '0.6px',
+    borderBottom: '2px solid #eef0f4',
+    background: '#f5f6fa',
     position: 'sticky',
     top: 0,
+    zIndex: 1,
   },
   nameCol: {
     width: '50%',
   },
   error: {
-    color: '#d93025',
+    color: '#d63031',
     fontSize: 13,
-    padding: '8px 10px',
-    background: '#fce8e6',
-    borderRadius: 4,
+    padding: '10px 14px',
+    background: '#fff5f5',
+    borderRadius: 8,
     margin: '8px 0',
+    border: '1px solid #fab1a0',
+    fontWeight: 500,
   },
   spinner: {
     padding: '12px 0',
     fontSize: 13,
-    color: '#888',
+    color: '#6c5ce7',
+    fontWeight: 500,
   },
   empty: {
-    padding: 24,
+    padding: 40,
     textAlign: 'center',
-    color: '#999',
+    color: '#b2bec3',
     fontSize: 14,
   },
   confirmBar: {
-    padding: '8px 12px',
-    background: '#fff3cd',
-    borderRadius: 4,
+    padding: '10px 16px',
+    background: '#ffeaa7',
+    borderRadius: 8,
     margin: '8px 0',
     fontSize: 13,
     display: 'flex',
     alignItems: 'center',
     gap: 12,
+    color: '#636e72',
+    border: '1px solid #fdcb6e',
   },
   cancelBtn: {
-    padding: '4px 10px',
-    border: '1px solid #d0d0d0',
-    borderRadius: 3,
+    padding: '5px 12px',
+    border: '1.5px solid #fdcb6e',
+    borderRadius: 6,
     fontSize: 12,
     background: '#fff',
-    cursor: 'pointer',
+    color: '#636e72',
+    fontWeight: 500,
   },
 };

@@ -7,9 +7,12 @@ interface Props {
   onCreateFolder: (name: string) => void;
   hasSelection: boolean;
   loading: boolean;
+  onExpandAll: () => void;
+  onCollapseAll: () => void;
+  targetFolderName?: string;
 }
 
-export function Toolbar({ onUpload, onRefresh, onDelete, onCreateFolder, hasSelection, loading }: Props) {
+export function Toolbar({ onUpload, onRefresh, onDelete, onCreateFolder, hasSelection, loading, onExpandAll, onCollapseAll, targetFolderName }: Props) {
   const [showFolderInput, setShowFolderInput] = useState(false);
   const [folderName, setFolderName] = useState('');
 
@@ -21,38 +24,50 @@ export function Toolbar({ onUpload, onRefresh, onDelete, onCreateFolder, hasSele
     }
   };
 
+  const intoLabel = targetFolderName ? ` into ${targetFolderName}` : '';
+
   return (
     <div style={styles.container}>
       <div style={styles.left}>
-        <button style={styles.btn} onClick={onUpload} disabled={loading} title="Upload files">
-          Upload
+        <button style={styles.btn} onClick={onUpload} disabled={loading} title={`Upload files${intoLabel}`}>
+          <span style={styles.btnIcon}>&#8593;</span> Upload{intoLabel}
         </button>
         <button style={styles.btn} onClick={onRefresh} disabled={loading} title="Refresh">
-          Refresh
+          <span style={styles.btnIcon}>&#8635;</span> Refresh
         </button>
         {!showFolderInput ? (
-          <button style={styles.btn} onClick={() => setShowFolderInput(true)} disabled={loading}>
-            New Folder
+          <button style={styles.btn} onClick={() => setShowFolderInput(true)} disabled={loading} title={`New folder${intoLabel}`}>
+            <span style={styles.btnIcon}>+</span> New Folder{intoLabel}
           </button>
         ) : (
           <span style={styles.folderInput}>
             <input
               style={styles.input}
               type="text"
-              placeholder="Folder name"
+              placeholder={`Folder name${intoLabel}`}
               value={folderName}
               onChange={e => setFolderName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleCreateFolder();
+                if (e.key === 'Escape') { setShowFolderInput(false); setFolderName(''); }
+              }}
               autoFocus
             />
             <button style={styles.btnSmall} onClick={handleCreateFolder}>Create</button>
-            <button style={styles.btnSmall} onClick={() => { setShowFolderInput(false); setFolderName(''); }}>Cancel</button>
+            <button style={{ ...styles.btnSmall, color: '#b2bec3' }} onClick={() => { setShowFolderInput(false); setFolderName(''); }}>Cancel</button>
           </span>
         )}
+        <span style={styles.separator} />
+        <button style={styles.btnGhost} onClick={onExpandAll} disabled={loading} title="Expand all folders">
+          Expand All
+        </button>
+        <button style={styles.btnGhost} onClick={onCollapseAll} disabled={loading} title="Collapse all folders">
+          Collapse All
+        </button>
       </div>
       <div style={styles.right}>
         {hasSelection && (
-          <button style={{ ...styles.btn, ...styles.dangerBtn }} onClick={onDelete} disabled={loading}>
+          <button style={styles.dangerBtn} onClick={onDelete} disabled={loading}>
             Delete Selected
           </button>
         )}
@@ -66,30 +81,59 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '8px 0',
-    borderBottom: '1px solid #e0e0e0',
+    padding: '10px 0',
+    borderBottom: '1px solid #eef0f4',
   },
   left: {
     display: 'flex',
-    gap: 8,
+    gap: 6,
     alignItems: 'center',
   },
   right: {
     display: 'flex',
     gap: 8,
   },
+  separator: {
+    width: 1,
+    height: 20,
+    background: '#e0e4ea',
+    margin: '0 6px',
+  },
   btn: {
-    padding: '6px 14px',
+    padding: '7px 14px',
     background: '#fff',
-    border: '1px solid #d0d0d0',
-    borderRadius: 4,
-    fontSize: 13,
-    cursor: 'pointer',
+    border: '1.5px solid #e0e4ea',
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: 500,
+    color: '#636e72',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    transition: 'border-color 0.15s, background 0.15s',
+  },
+  btnIcon: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: '#6c5ce7',
+  },
+  btnGhost: {
+    padding: '7px 12px',
+    background: 'transparent',
+    border: 'none',
+    borderRadius: 6,
+    fontSize: 12,
+    color: '#b2bec3',
     fontWeight: 500,
   },
   dangerBtn: {
-    color: '#d93025',
-    borderColor: '#d93025',
+    padding: '7px 14px',
+    background: '#fff5f5',
+    border: '1.5px solid #fab1a0',
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: 600,
+    color: '#d63031',
   },
   folderInput: {
     display: 'flex',
@@ -97,18 +141,21 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
   },
   input: {
-    padding: '5px 8px',
-    border: '1px solid #d0d0d0',
-    borderRadius: 4,
+    padding: '7px 10px',
+    border: '1.5px solid #e0e4ea',
+    borderRadius: 8,
     fontSize: 13,
     width: 160,
+    color: '#2d3436',
+    background: '#fafbfc',
   },
   btnSmall: {
-    padding: '5px 10px',
+    padding: '6px 12px',
     background: '#fff',
-    border: '1px solid #d0d0d0',
-    borderRadius: 4,
+    border: '1.5px solid #e0e4ea',
+    borderRadius: 6,
     fontSize: 12,
-    cursor: 'pointer',
+    fontWeight: 500,
+    color: '#636e72',
   },
 };
