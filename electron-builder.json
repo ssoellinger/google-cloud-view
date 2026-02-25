@@ -1,0 +1,18 @@
+{
+  "appId": "com.sisoe.google-cloud-view",
+  "productName": "Google Cloud View",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*"
+  ],
+  "win": {
+    "target": "nsis"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}
