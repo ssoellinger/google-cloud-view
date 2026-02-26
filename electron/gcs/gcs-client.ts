@@ -17,6 +17,11 @@ export class GcsClient {
     });
   }
 
+  /** URL-encode each path segment so spaces/special chars match the signature */
+  private encodeKey(key: string): string {
+    return key.split('/').map(s => encodeURIComponent(s)).join('/');
+  }
+
   private signRequest(
     method: string,
     canonicalResource: string,
@@ -194,42 +199,113 @@ export class GcsClient {
   }
 
   async uploadItem(objectName: string, buffer: Buffer, contentType = 'application/octet-stream'): Promise<void> {
-    const url = `${this.config.serviceUrl}${this.config.bucketName}/${objectName}`;
-    const canonicalResource = `/${this.config.bucketName}/${objectName}`;
+    const encoded = this.encodeKey(objectName);
+    const url = `${this.config.serviceUrl}${this.config.bucketName}/${encoded}`;
+    const canonicalResource = `/${this.config.bucketName}/${encoded}`;
     await this.sendRequest('PUT', url, canonicalResource, buffer, contentType);
   }
 
   async downloadItem(objectName: string): Promise<Buffer> {
-    const url = `${this.config.serviceUrl}${this.config.bucketName}/${objectName}`;
-    const canonicalResource = `/${this.config.bucketName}/${objectName}`;
+    const encoded = this.encodeKey(objectName);
+    const url = `${this.config.serviceUrl}${this.config.bucketName}/${encoded}`;
+    const canonicalResource = `/${this.config.bucketName}/${encoded}`;
     const response = await this.sendRequest('GET', url, canonicalResource);
     const arrayBuffer = await response.arrayBuffer();
     return Buffer.from(arrayBuffer);
   }
 
+  async downloadItemWithProgress(
+    objectName: string,
+    onProgress: (loaded: number, total: number) => void,
+  ): Promise<Buffer> {
+    const encoded = this.encodeKey(objectName);
+    const url = `${this.config.serviceUrl}${this.config.bucketName}/${encoded}`;
+    const canonicalResource = `/${this.config.bucketName}/${encoded}`;
+    const response = await this.sendRequest('GET', url, canonicalResource);
+
+    const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
+    if (!response.body || !contentLength) {
+      const arrayBuffer = await response.arrayBuffer();
+      onProgress(arrayBuffer.byteLength, arrayBuffer.byteLength);
+      return Buffer.from(arrayBuffer);
+    }
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let loaded = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loaded += value.byteLength;
+      onProgress(loaded, contentLength);
+    }
+
+    const combined = Buffer.concat(chunks);
+    return combined;
+  }
+
   async deleteItem(objectName: string): Promise<void> {
-    const url = `${this.config.serviceUrl}${this.config.bucketName}/${objectName}`;
-    const canonicalResource = `/${this.config.bucketName}/${objectName}`;
+    const encoded = this.encodeKey(objectName);
+    const url = `${this.config.serviceUrl}${this.config.bucketName}/${encoded}`;
+    const canonicalResource = `/${this.config.bucketName}/${encoded}`;
     await this.sendRequest('DELETE', url, canonicalResource);
   }
 
   async copyItem(sourceKey: string, destKey: string): Promise<void> {
-    const url = `${this.config.serviceUrl}${this.config.bucketName}/${destKey}`;
-    const canonicalResource = `/${this.config.bucketName}/${destKey}`;
-    const copySource = `/${this.config.bucketName}/${sourceKey}`;
+    const encodedDest = this.encodeKey(destKey);
+    const encodedSource = this.encodeKey(sourceKey);
+    const url = `${this.config.serviceUrl}${this.config.bucketName}/${encodedDest}`;
+    const canonicalResource = `/${this.config.bucketName}/${encodedDest}`;
+    const copySource = `/${this.config.bucketName}/${encodedSource}`;
     await this.sendRequest('PUT', url, canonicalResource, null, '', {
       'x-amz-copy-source': copySource,
     });
   }
 
+  async copyFolder(sourceKey: string, destKey: string): Promise<void> {
+    const allObjects = await this.listItems(sourceKey);
+    for (const obj of allObjects) {
+      const relativePath = obj.key.slice(sourceKey.length);
+      const newKey = destKey + relativePath;
+      await this.copyItem(obj.key, newKey);
+    }
+    // Also copy the folder marker itself if it exists
+    try {
+      await this.copyItem(sourceKey, destKey);
+    } catch {
+      // folder marker may not exist
+    }
+  }
+
   async moveItem(sourceKey: string, destKey: string): Promise<void> {
-    await this.copyItem(sourceKey, destKey);
-    await this.deleteItem(sourceKey);
+    if (sourceKey.endsWith('/')) {
+      // Folder move: list all objects under the source prefix and move each one
+      const allObjects = await this.listItems(sourceKey);
+      for (const obj of allObjects) {
+        const relativePath = obj.key.slice(sourceKey.length);
+        const newKey = destKey + relativePath;
+        await this.copyItem(obj.key, newKey);
+        await this.deleteItem(obj.key);
+      }
+      // Also move the folder marker itself if it exists
+      try {
+        await this.copyItem(sourceKey, destKey);
+        await this.deleteItem(sourceKey);
+      } catch {
+        // folder marker may not exist as an object
+      }
+    } else {
+      await this.copyItem(sourceKey, destKey);
+      await this.deleteItem(sourceKey);
+    }
   }
 
   async fileExists(objectName: string): Promise<boolean> {
-    const url = `${this.config.serviceUrl}${this.config.bucketName}/${objectName}`;
-    const canonicalResource = `/${this.config.bucketName}/${objectName}`;
+    const encoded = this.encodeKey(objectName);
+    const url = `${this.config.serviceUrl}${this.config.bucketName}/${encoded}`;
+    const canonicalResource = `/${this.config.bucketName}/${encoded}`;
     try {
       const response = await this.sendRequest('HEAD', url, canonicalResource);
       return response.status === 200;

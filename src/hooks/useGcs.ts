@@ -72,6 +72,27 @@ async function prefetchChildren(nodes: TreeNode[]): Promise<void> {
   }));
 }
 
+/** Recursively load children for all expanded paths + prefetch one level beyond */
+async function restoreExpandedTree(nodes: TreeNode[], expanded: Set<string>): Promise<void> {
+  const folders = nodes.filter(n => n.isFolder);
+  await Promise.all(folders.map(async (node) => {
+    if (node.childrenLoaded) return;
+    try {
+      const result = await window.gcsApi.list(node.fullPath);
+      node.children = buildTreeNodes(result);
+      node.childrenLoaded = true;
+    } catch {
+      return;
+    }
+  }));
+  // For expanded folders, recurse into their children
+  await Promise.all(folders.map(async (node) => {
+    if (expanded.has(node.fullPath) && node.children) {
+      await restoreExpandedTree(node.children, expanded);
+    }
+  }));
+}
+
 function updateNodeChildren(nodes: TreeNode[], targetPath: string, children: TreeNode[]): TreeNode[] {
   return nodes.map(node => {
     if (node.fullPath === targetPath) {
@@ -95,13 +116,6 @@ function findNode(nodes: TreeNode[], path: string): TreeNode | undefined {
   return undefined;
 }
 
-async function refreshChildren(prefix: string): Promise<TreeNode[]> {
-  const result = await window.gcsApi.list(prefix);
-  const children = buildTreeNodes(result);
-  await prefetchChildren(children);
-  return children;
-}
-
 export function useGcs() {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -110,6 +124,8 @@ export function useGcs() {
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const expandingRef = useRef(false);
+  const expandedRef = useRef(expandedPaths);
+  expandedRef.current = expandedPaths;
 
   const connect = useCallback(async (config: GcsConfig): Promise<boolean> => {
     setLoading(true);
@@ -143,10 +159,34 @@ export function useGcs() {
     setError(null);
     try {
       const p = prefix ?? currentPrefix;
-      const nodes = await refreshChildren(p);
+      const result = await window.gcsApi.list(p);
+      const nodes = buildTreeNodes(result);
       if (prefix !== undefined) {
+        // Navigating to new prefix — fresh start
+        await prefetchChildren(nodes);
         setCurrentPrefix(p);
         setExpandedPaths(new Set());
+      } else {
+        // Refreshing current view — restore full expanded tree
+        await restoreExpandedTree(nodes, expandedRef.current);
+        // Prune expanded paths that no longer exist in the tree
+        const validPaths = new Set<string>();
+        const collectFolderPaths = (ns: TreeNode[]) => {
+          for (const n of ns) {
+            if (n.isFolder) {
+              validPaths.add(n.fullPath);
+              if (n.children) collectFolderPaths(n.children);
+            }
+          }
+        };
+        collectFolderPaths(nodes);
+        setExpandedPaths(prev => {
+          const pruned = new Set<string>();
+          for (const p of prev) {
+            if (validPaths.has(p)) pruned.add(p);
+          }
+          return pruned;
+        });
       }
       setTreeData(nodes);
     } catch (err: unknown) {
@@ -173,13 +213,25 @@ export function useGcs() {
         const key = dest + fileName;
         await window.gcsApi.upload(key, filePath);
       }
-      if (targetPrefix && targetPrefix !== currentPrefix) {
-        const children = await refreshChildren(targetPrefix);
-        setTreeData(prev => updateNodeChildren(prev, targetPrefix, children));
-        setExpandedPaths(prev => { const next = new Set(prev); next.add(targetPrefix); return next; });
-      } else {
-        await refreshList();
+      await refreshList();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPrefix, refreshList]);
+
+  const uploadFromPaths = useCallback(async (paths: string[], targetPrefix?: string) => {
+    setError(null);
+    const dest = targetPrefix ?? currentPrefix;
+    setLoading(true);
+    try {
+      for (const filePath of paths) {
+        const fileName = filePath.replace(/\\/g, '/').split('/').pop()!;
+        const key = dest + fileName;
+        await window.gcsApi.upload(key, filePath);
       }
+      await refreshList();
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     } finally {
@@ -231,6 +283,36 @@ export function useGcs() {
     }
   }, [refreshList]);
 
+  const copyFile = useCallback(async (sourceKey: string, destKey: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await window.gcsApi.copy(sourceKey, destKey);
+      await refreshList();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshList]);
+
+  const duplicateFile = useCallback(async (key: string) => {
+    const isFolder = key.endsWith('/');
+    const stripped = key.replace(/\/$/, '');
+    const parts = stripped.split('/');
+    const name = parts.pop()!;
+    const parent = parts.length > 0 ? parts.join('/') + '/' : '';
+    const dotIndex = name.lastIndexOf('.');
+    let newName: string;
+    if (!isFolder && dotIndex > 0) {
+      newName = name.slice(0, dotIndex) + ' (copy)' + name.slice(dotIndex);
+    } else {
+      newName = name + ' (copy)';
+    }
+    const destKey = parent + newName + (isFolder ? '/' : '');
+    await copyFile(key, destKey);
+  }, [copyFile]);
+
   const createFolder = useCallback(async (folderName: string, targetPrefix?: string) => {
     setLoading(true);
     setError(null);
@@ -238,13 +320,7 @@ export function useGcs() {
     try {
       const key = dest + folderName + '/';
       await window.gcsApi.createFolder(key);
-      if (targetPrefix && targetPrefix !== currentPrefix) {
-        const children = await refreshChildren(targetPrefix);
-        setTreeData(prev => updateNodeChildren(prev, targetPrefix, children));
-        setExpandedPaths(prev => { const next = new Set(prev); next.add(targetPrefix); return next; });
-      } else {
-        await refreshList();
-      }
+      await refreshList();
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     } finally {
@@ -258,15 +334,13 @@ export function useGcs() {
     try {
       const key = parentPrefix + folderName + '/';
       await window.gcsApi.createFolder(key);
-      const children = await refreshChildren(parentPrefix);
-      setTreeData(prev => updateNodeChildren(prev, parentPrefix, children));
-      setExpandedPaths(prev => { const next = new Set(prev); next.add(parentPrefix); return next; });
+      await refreshList();
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshList]);
 
   const toggleFolder = useCallback(async (prefix: string) => {
     if (expandedPaths.has(prefix)) {
@@ -283,7 +357,9 @@ export function useGcs() {
     if (node && !node.childrenLoaded) {
       setLoading(true);
       try {
-        const children = await refreshChildren(prefix);
+        const result = await window.gcsApi.list(prefix);
+        const children = buildTreeNodes(result);
+        await prefetchChildren(children);
         setTreeData(prev => updateNodeChildren(prev, prefix, children));
       } catch (err: unknown) {
         setError(getErrorMessage(err));
@@ -369,9 +445,12 @@ export function useGcs() {
     refreshList,
     navigateTo,
     uploadFiles,
+    uploadFromPaths,
     downloadFile,
     deleteFiles,
     moveFile,
+    copyFile,
+    duplicateFile,
     createFolder,
     createSubfolder,
     toggleFolder,

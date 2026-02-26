@@ -107,8 +107,11 @@ export function App() {
       onDownload={gcs.downloadFile}
       onDelete={gcs.deleteFiles}
       onMove={gcs.moveFile}
+      onCopy={gcs.copyFile}
+      onDuplicate={gcs.duplicateFile}
       onCreateFolder={gcs.createFolder}
       onCreateSubfolder={gcs.createSubfolder}
+      onUploadFromPaths={gcs.uploadFromPaths}
       onDisconnect={handleDisconnect}
       onToggleFolder={gcs.toggleFolder}
       onExpandAll={gcs.expandAll}

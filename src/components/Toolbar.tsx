@@ -10,9 +10,11 @@ interface Props {
   onExpandAll: () => void;
   onCollapseAll: () => void;
   targetFolderName?: string;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
 }
 
-export function Toolbar({ onUpload, onRefresh, onDelete, onCreateFolder, hasSelection, loading, onExpandAll, onCollapseAll, targetFolderName }: Props) {
+export function Toolbar({ onUpload, onRefresh, onDelete, onCreateFolder, hasSelection, loading, onExpandAll, onCollapseAll, targetFolderName, searchQuery, onSearchChange }: Props) {
   const [showFolderInput, setShowFolderInput] = useState(false);
   const [folderName, setFolderName] = useState('');
 
@@ -64,6 +66,19 @@ export function Toolbar({ onUpload, onRefresh, onDelete, onCreateFolder, hasSele
         <button style={styles.btnGhost} onClick={onCollapseAll} disabled={loading} title="Collapse all folders">
           Collapse All
         </button>
+        <span style={styles.separator} />
+        <span style={styles.searchWrap}>
+          <input
+            style={styles.searchInput}
+            type="text"
+            placeholder="Search files..."
+            value={searchQuery}
+            onChange={e => onSearchChange(e.target.value)}
+          />
+          {searchQuery && (
+            <button style={styles.clearBtn} onClick={() => onSearchChange('')} title="Clear search">&times;</button>
+          )}
+        </span>
       </div>
       <div style={styles.right}>
         {hasSelection && (
@@ -157,5 +172,32 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     fontWeight: 500,
     color: '#636e72',
+  },
+  searchWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  searchInput: {
+    padding: '7px 28px 7px 10px',
+    border: '1.5px solid #e0e4ea',
+    borderRadius: 8,
+    fontSize: 13,
+    width: 180,
+    color: '#2d3436',
+    background: '#fafbfc',
+  },
+  clearBtn: {
+    position: 'absolute',
+    right: 6,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'none',
+    border: 'none',
+    fontSize: 16,
+    color: '#b2bec3',
+    cursor: 'pointer',
+    padding: '0 4px',
+    lineHeight: 1,
   },
 };

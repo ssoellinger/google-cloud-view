@@ -61,6 +61,10 @@ ipcMain.handle('gcs:list', async (_event, prefix: string) => {
 
 ipcMain.handle('gcs:upload', async (_event, key: string, filePath: string) => {
   if (!gcsClient) throw new Error('Not connected');
+  const fileName = filePath.replace(/\\/g, '/').split('/').pop() || key;
+  mainWindow?.webContents.send('gcs:progress', {
+    operation: 'upload', key, fileName, loaded: 0, total: 1, percent: 0,
+  });
   const buffer = await readFile(filePath);
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
   const mimeTypes: Record<string, string> = {
@@ -71,12 +75,27 @@ ipcMain.handle('gcs:upload', async (_event, key: string, filePath: string) => {
   };
   const contentType = mimeTypes[ext] || 'application/octet-stream';
   await gcsClient.uploadItem(key, buffer, contentType);
+  mainWindow?.webContents.send('gcs:progress', {
+    operation: 'upload', key, fileName, loaded: 1, total: 1, percent: 100,
+  });
 });
 
 ipcMain.handle('gcs:download', async (_event, key: string, savePath: string) => {
   if (!gcsClient) throw new Error('Not connected');
-  const buffer = await gcsClient.downloadItem(key);
+  const fileName = key.split('/').pop() || key;
+  mainWindow?.webContents.send('gcs:progress', {
+    operation: 'download', key, fileName, loaded: 0, total: 1, percent: 0,
+  });
+  const buffer = await gcsClient.downloadItemWithProgress(key, (loaded, total) => {
+    mainWindow?.webContents.send('gcs:progress', {
+      operation: 'download', key, fileName, loaded, total,
+      percent: total > 0 ? Math.round((loaded / total) * 100) : 0,
+    });
+  });
   await writeFile(savePath, buffer);
+  mainWindow?.webContents.send('gcs:progress', {
+    operation: 'download', key, fileName, loaded: 1, total: 1, percent: 100,
+  });
 });
 
 ipcMain.handle('gcs:delete', async (_event, key: string) => {
@@ -87,6 +106,15 @@ ipcMain.handle('gcs:delete', async (_event, key: string) => {
 ipcMain.handle('gcs:move', async (_event, sourceKey: string, destKey: string) => {
   if (!gcsClient) throw new Error('Not connected');
   await gcsClient.moveItem(sourceKey, destKey);
+});
+
+ipcMain.handle('gcs:copy', async (_event, sourceKey: string, destKey: string) => {
+  if (!gcsClient) throw new Error('Not connected');
+  if (sourceKey.endsWith('/')) {
+    await gcsClient.copyFolder(sourceKey, destKey);
+  } else {
+    await gcsClient.copyItem(sourceKey, destKey);
+  }
 });
 
 ipcMain.handle('gcs:createFolder', async (_event, key: string) => {

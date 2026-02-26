@@ -16,13 +16,17 @@ interface Props {
   onSelect: (key: string, checked: boolean) => void;
   onDownload: (key: string) => void;
   onMove: (sourceKey: string, destKey: string) => void;
+  onCopyToFolder?: (sourceKey: string, destKey: string) => void;
+  onDuplicate?: (key: string) => void;
   onCreateSubfolder?: (parentPrefix: string, folderName: string) => void;
+  onUploadToFolder?: (paths: string[], targetPrefix: string) => void;
+  onDismissDropZone?: () => void;
 }
 
 export function FileRow({
   name, objectKey, size, lastModified, isFolder,
   isSelected, currentPrefix, depth, isExpanded, hasChildren, onToggleExpand,
-  onSelect, onDownload, onMove, onCreateSubfolder,
+  onSelect, onDownload, onMove, onCopyToFolder, onDuplicate, onCreateSubfolder, onUploadToFolder, onDismissDropZone,
 }: Props) {
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState(name);
@@ -46,7 +50,7 @@ export function FileRow({
   const handleDragOver = (e: React.DragEvent) => {
     if (!isFolder) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
     setDragOver(true);
   };
 
@@ -55,13 +59,33 @@ export function FileRow({
     if (!isFolder) return;
     e.preventDefault();
     e.stopPropagation();
+
+    // External file drop from desktop
+    if (e.dataTransfer.types.includes('Files') && e.dataTransfer.files.length > 0) {
+      onDismissDropZone?.();
+      if (onUploadToFolder) {
+        const paths: string[] = [];
+        for (let i = 0; i < e.dataTransfer.files.length; i++) {
+          const p = window.gcsApi.getPathForFile(e.dataTransfer.files[i]);
+          if (p) paths.push(p);
+        }
+        if (paths.length > 0) onUploadToFolder(paths, objectKey);
+      }
+      return;
+    }
+
+    // Internal drag
     const sourceKey = e.dataTransfer.getData('text/plain');
     if (!sourceKey || sourceKey === objectKey) return;
     if (objectKey.startsWith(sourceKey)) return;
     const fileName = sourceKey.replace(/\/$/, '').split('/').pop()!;
     const isSourceFolder = sourceKey.endsWith('/');
     const destKey = objectKey + fileName + (isSourceFolder ? '/' : '');
-    onMove(sourceKey, destKey);
+    if (e.ctrlKey && onCopyToFolder) {
+      onCopyToFolder(sourceKey, destKey);
+    } else {
+      onMove(sourceKey, destKey);
+    }
   };
 
   const handleCreateSubfolder = () => {
@@ -131,8 +155,8 @@ export function FileRow({
             )}
           </span>
         </td>
-        <td style={styles.metaCell}>{isFolder ? '-' : formatSize(size)}</td>
-        <td style={styles.metaCell}>{isFolder ? '-' : formatDate(lastModified)}</td>
+        <td style={styles.metaCell}>{formatSize(size)}</td>
+        <td style={styles.metaCell}>{formatDate(lastModified)}</td>
         <td style={styles.actionsCell}>
           {!isFolder && (
             <button style={styles.actionBtn} onClick={() => onDownload(objectKey)} title="Download">
@@ -142,6 +166,11 @@ export function FileRow({
           <button style={styles.actionBtn} onClick={() => { setRenaming(true); setNewName(name); }} title="Rename">
             Rename
           </button>
+          {onDuplicate && (
+            <button style={styles.actionBtn} onClick={() => onDuplicate(objectKey)} title="Duplicate">
+              Copy
+            </button>
+          )}
           {isFolder && onCreateSubfolder && (
             <button
               style={styles.actionBtn}
