@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { formatSize, formatDate } from '../utils/format';
 
 interface Props {
@@ -33,6 +33,17 @@ export function FileRow({
   const [dragOver, setDragOver] = useState(false);
   const [showSubfolderInput, setShowSubfolderInput] = useState(false);
   const [subfolderName, setSubfolderName] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [menuOpen]);
 
   const handleRename = () => {
     if (newName.trim() && newName !== name) {
@@ -159,28 +170,33 @@ export function FileRow({
         <td style={styles.metaCell}>{formatSize(size)}</td>
         <td style={styles.metaCell}>{formatDate(lastModified)}</td>
         <td style={styles.actionsCell}>
-          {!isFolder && (
-            <button style={styles.actionBtn} onClick={() => onDownload(objectKey)} title="Download">
-              Download
+          <div ref={menuRef} style={styles.menuWrapper}>
+            <button style={styles.menuBtn} onClick={() => setMenuOpen(v => !v)} title="Actions">
+              &#8943;
             </button>
-          )}
-          <button style={styles.actionBtn} onClick={() => { setRenaming(true); setNewName(name); }} title="Rename">
-            Rename
-          </button>
-          {onDuplicate && (
-            <button style={styles.actionBtn} onClick={() => onDuplicate(objectKey)} title="Duplicate">
-              Copy
-            </button>
-          )}
-          {isFolder && onCreateSubfolder && (
-            <button
-              style={styles.actionBtn}
-              onClick={() => setShowSubfolderInput(v => !v)}
-              title="New subfolder"
-            >
-              + Folder
-            </button>
-          )}
+            {menuOpen && (
+              <div style={styles.menu}>
+                {!isFolder && (
+                  <button style={styles.menuItem} onClick={() => { setMenuOpen(false); onDownload(objectKey); }}>
+                    <span style={styles.menuIcon}>&#8595;</span> Download
+                  </button>
+                )}
+                <button style={styles.menuItem} onClick={() => { setMenuOpen(false); setRenaming(true); setNewName(name); }}>
+                  <span style={styles.menuIcon}>&#9998;</span> Rename
+                </button>
+                {onDuplicate && (
+                  <button style={styles.menuItem} onClick={() => { setMenuOpen(false); onDuplicate(objectKey); }}>
+                    <span style={styles.menuIcon}>&#10697;</span> Duplicate
+                  </button>
+                )}
+                {isFolder && onCreateSubfolder && (
+                  <button style={styles.menuItem} onClick={() => { setMenuOpen(false); setShowSubfolderInput(v => !v); }}>
+                    <span style={styles.menuIcon}>&#128193;</span> Add new subfolder
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </td>
       </tr>
       {showSubfolderInput && (
@@ -276,17 +292,52 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#2d3436',
     fontWeight: 400,
   },
-  actionBtn: {
+  menuWrapper: {
+    position: 'relative',
+    display: 'inline-block',
+  },
+  menuBtn: {
+    background: 'none',
+    border: 'none',
+    fontSize: 18,
+    cursor: 'pointer',
+    color: '#636e72',
+    padding: '2px 6px',
+    borderRadius: 4,
+    lineHeight: 1,
+    transition: 'background 0.12s',
+  },
+  menu: {
+    position: 'absolute',
+    right: 0,
+    top: '100%',
     background: '#fff',
     border: '1px solid #e0e4ea',
-    borderRadius: 5,
-    padding: '4px 10px',
-    fontSize: 11,
+    borderRadius: 8,
+    boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+    zIndex: 100,
+    minWidth: 150,
+    padding: '4px 0',
+  },
+  menuItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+    background: 'none',
+    border: 'none',
+    padding: '7px 14px',
+    fontSize: 13,
+    color: '#2d3436',
     cursor: 'pointer',
-    marginRight: 4,
-    color: '#636e72',
-    fontWeight: 500,
-    transition: 'border-color 0.12s',
+    whiteSpace: 'nowrap',
+    textAlign: 'left',
+  },
+  menuIcon: {
+    width: 18,
+    textAlign: 'center',
+    fontSize: 14,
+    flexShrink: 0,
   },
   renameInput: {
     display: 'flex',
