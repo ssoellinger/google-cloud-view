@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { createWriteStream } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
+import archiver from 'archiver';
 import { GcsClient } from './gcs/gcs-client';
 import type { StorageBlobConfig } from './gcs/gcs-types';
 
@@ -96,6 +98,41 @@ ipcMain.handle('gcs:download', async (_event, key: string, savePath: string) => 
   mainWindow?.webContents.send('gcs:progress', {
     operation: 'download', key, fileName, loaded: 1, total: 1, percent: 100,
   });
+});
+
+ipcMain.handle('gcs:downloadFolder', async (_event, folderKey: string, savePath: string) => {
+  if (!gcsClient) throw new Error('Not connected');
+  const folderName = folderKey.replace(/\/$/, '').split('/').pop() || 'folder';
+  const allObjects = await gcsClient.listItems(folderKey);
+  const files = allObjects.filter(o => !o.key.endsWith('/'));
+  if (files.length === 0) throw new Error('Folder is empty');
+
+  mainWindow?.webContents.send('gcs:progress', {
+    operation: 'download', key: folderKey, fileName: folderName + '.zip', loaded: 0, total: files.length, percent: 0,
+  });
+
+  const output = createWriteStream(savePath);
+  const archive = archiver('zip', { zlib: { level: 5 } });
+  const finished = new Promise<void>((resolve, reject) => {
+    output.on('close', resolve);
+    archive.on('error', reject);
+  });
+  archive.pipe(output);
+
+  for (let i = 0; i < files.length; i++) {
+    const obj = files[i];
+    const relativePath = obj.key.slice(folderKey.length);
+    const buffer = await gcsClient.downloadItem(obj.key);
+    archive.append(buffer, { name: relativePath });
+    mainWindow?.webContents.send('gcs:progress', {
+      operation: 'download', key: folderKey, fileName: folderName + '.zip',
+      loaded: i + 1, total: files.length,
+      percent: Math.round(((i + 1) / files.length) * 100),
+    });
+  }
+
+  await archive.finalize();
+  await finished;
 });
 
 ipcMain.handle('gcs:delete', async (_event, key: string) => {

@@ -241,13 +241,19 @@ export function useGcs() {
 
   const downloadFile = useCallback(async (key: string) => {
     setError(null);
-    const fileName = key.split('/').pop() || 'download';
+    const isFolder = key.endsWith('/');
+    const baseName = key.replace(/\/$/, '').split('/').pop() || 'download';
+    const fileName = isFolder ? baseName + '.zip' : baseName;
     const savePath = await window.gcsApi.saveFileDialog(fileName);
     if (!savePath) return;
 
     setLoading(true);
     try {
-      await window.gcsApi.download(key, savePath);
+      if (isFolder) {
+        await window.gcsApi.downloadFolder(key, savePath);
+      } else {
+        await window.gcsApi.download(key, savePath);
+      }
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     } finally {

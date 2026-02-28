@@ -176,11 +176,9 @@ export function FileRow({
             </button>
             {menuOpen && (
               <div style={styles.menu}>
-                {!isFolder && (
-                  <button style={styles.menuItem} onClick={() => { setMenuOpen(false); onDownload(objectKey); }}>
-                    <span style={styles.menuIcon}>&#8595;</span> Download
-                  </button>
-                )}
+                <button style={styles.menuItem} onClick={() => { setMenuOpen(false); onDownload(objectKey); }}>
+                  <span style={styles.menuIcon}>&#8595;</span> {isFolder ? 'Download as ZIP' : 'Download'}
+                </button>
                 <button style={styles.menuItem} onClick={() => { setMenuOpen(false); setRenaming(true); setNewName(name); }}>
                   <span style={styles.menuIcon}>&#9998;</span> Rename
                 </button>

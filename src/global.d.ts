@@ -22,6 +22,7 @@ interface GcsApi {
   }>;
   upload(key: string, filePath: string): Promise<void>;
   download(key: string, savePath: string): Promise<void>;
+  downloadFolder(folderKey: string, savePath: string): Promise<void>;
   delete(key: string): Promise<void>;
   move(sourceKey: string, destKey: string): Promise<void>;
   copy(sourceKey: string, destKey: string): Promise<void>;
