@@ -81,6 +81,7 @@ export function FileRow({
     const fileName = sourceKey.replace(/\/$/, '').split('/').pop()!;
     const isSourceFolder = sourceKey.endsWith('/');
     const destKey = objectKey + fileName + (isSourceFolder ? '/' : '');
+    if (sourceKey === destKey) return;
     if (e.ctrlKey && onCopyToFolder) {
       onCopyToFolder(sourceKey, destKey);
     } else {
