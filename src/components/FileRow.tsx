@@ -47,7 +47,10 @@ export function FileRow({
 
   const handleRename = () => {
     if (newName.trim() && newName !== name) {
-      const newKey = currentPrefix + newName + (isFolder ? '/' : '');
+      const parentPath = objectKey.replace(/\/?$/, '').includes('/')
+        ? objectKey.replace(/\/?$/, '').split('/').slice(0, -1).join('/') + '/'
+        : '';
+      const newKey = parentPath + newName + (isFolder ? '/' : '');
       onMove(objectKey, newKey);
     }
     setRenaming(false);
@@ -59,7 +62,6 @@ export function FileRow({
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    if (!isFolder) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
     setDragOver(true);
@@ -67,7 +69,6 @@ export function FileRow({
 
   const handleDrop = (e: React.DragEvent) => {
     setDragOver(false);
-    if (!isFolder) return;
     e.preventDefault();
     e.stopPropagation();
 
@@ -91,7 +92,13 @@ export function FileRow({
     if (objectKey.startsWith(sourceKey)) return;
     const fileName = sourceKey.replace(/\/$/, '').split('/').pop()!;
     const isSourceFolder = sourceKey.endsWith('/');
-    const destKey = objectKey + fileName + (isSourceFolder ? '/' : '');
+    // Folder: move into the folder; File: move into the file's parent directory
+    const targetPrefix = isFolder
+      ? objectKey
+      : objectKey.includes('/')
+        ? objectKey.split('/').slice(0, -1).join('/') + '/'
+        : '';
+    const destKey = targetPrefix + fileName + (isSourceFolder ? '/' : '');
     if (sourceKey === destKey) return;
     if (e.ctrlKey && onCopyToFolder) {
       onCopyToFolder(sourceKey, destKey);
@@ -115,7 +122,7 @@ export function FileRow({
     <>
       <tr
         style={{ ...styles.row, background: rowBg }}
-        draggable
+        draggable={!renaming}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragLeave={() => setDragOver(false)}

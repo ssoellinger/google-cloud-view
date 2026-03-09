@@ -223,6 +223,11 @@ export function FileBrowser({
     if (!sourceKey) return;
     const fileName = sourceKey.replace(/\/$/, '').split('/').pop()!;
     const isSourceFolder = sourceKey.endsWith('/');
+    const sourceParent = sourceKey.replace(/\/?$/, '').includes('/')
+      ? sourceKey.replace(/\/?$/, '').split('/').slice(0, -1).join('/') + '/'
+      : '';
+    // Only move if dropping into a different directory than the source's parent
+    if (sourceParent === currentPrefix) return;
     const destKey = currentPrefix + fileName + (isSourceFolder ? '/' : '');
     if (sourceKey !== destKey) {
       if (e.ctrlKey) {
