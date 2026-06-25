@@ -5,6 +5,7 @@ import { Toolbar } from './Toolbar';
 import { FileRow } from './FileRow';
 import { ProgressBar } from './ProgressBar';
 import { HelpModal } from './HelpModal';
+import { PreviewModal } from './PreviewModal';
 
 type SortField = 'name' | 'size' | 'modified';
 type SortDirection = 'asc' | 'desc';
@@ -47,6 +48,7 @@ export function FileBrowser({
   const dragCounterRef = useRef(0);
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [preview, setPreview] = useState<{ key: string; name: string; size: number } | null>(null);
 
   // Prevent Chromium from navigating to dropped files when they land outside a handler
   useEffect(() => {
@@ -296,6 +298,7 @@ export function FileBrowser({
           hasChildren={node.isFolder ? (node.childrenLoaded ? (node.children ?? []).length > 0 : undefined) : false}
           onToggleExpand={node.isFolder ? () => onToggleFolder(node.fullPath) : undefined}
           onSelect={handleSelect}
+          onPreview={node.isFolder ? undefined : () => setPreview({ key: node.fullPath, name: node.name, size: node.size })}
           onDownload={onDownload}
           onMove={onMove}
           onCopyToFolder={onCopy}
@@ -335,6 +338,15 @@ export function FileBrowser({
         </div>
       </div>
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {preview && (
+        <PreviewModal
+          objectKey={preview.key}
+          name={preview.name}
+          size={preview.size}
+          onClose={() => setPreview(null)}
+          onDownload={() => { onDownload(preview.key); setPreview(null); }}
+        />
+      )}
       <Toolbar
         onUpload={() => onUpload(targetPrefix)}
         onRefresh={onRefresh}

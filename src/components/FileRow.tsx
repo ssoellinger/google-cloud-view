@@ -14,6 +14,7 @@ interface Props {
   hasChildren?: boolean;
   onToggleExpand?: () => void;
   onSelect: (key: string, checked: boolean) => void;
+  onPreview?: () => void;
   onDownload: (key: string) => void;
   onMove: (sourceKey: string, destKey: string) => void;
   onCopyToFolder?: (sourceKey: string, destKey: string) => void;
@@ -26,7 +27,7 @@ interface Props {
 export function FileRow({
   name, objectKey, size, lastModified, isFolder,
   isSelected, currentPrefix, depth, isExpanded, hasChildren, onToggleExpand,
-  onSelect, onDownload, onMove, onCopyToFolder, onDuplicate, onCreateSubfolder, onUploadToFolder, onDismissDropZone,
+  onSelect, onPreview, onDownload, onMove, onCopyToFolder, onDuplicate, onCreateSubfolder, onUploadToFolder, onDismissDropZone,
 }: Props) {
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState(name);
@@ -189,6 +190,8 @@ export function FileRow({
               <button style={styles.link} onClick={() => onToggleExpand?.()}>
                 {name}
               </button>
+            ) : onPreview ? (
+              <button style={styles.fileNameBtn} onClick={onPreview} title="Preview">{name}</button>
             ) : (
               <span style={styles.fileName}>{name}</span>
             )}
@@ -203,6 +206,11 @@ export function FileRow({
             </button>
             {menuOpen && (
               <div style={styles.menu}>
+                {onPreview && (
+                  <button style={styles.menuItem} onClick={() => { setMenuOpen(false); onPreview(); }}>
+                    <span style={styles.menuIcon}>&#128065;</span> Preview
+                  </button>
+                )}
                 <button style={styles.menuItem} onClick={() => { setMenuOpen(false); onDownload(objectKey); }}>
                   <span style={styles.menuIcon}>&#8595;</span> {isFolder ? 'Download as ZIP' : 'Download'}
                 </button>
@@ -317,6 +325,17 @@ const styles: Record<string, React.CSSProperties> = {
   fileName: {
     color: '#2d3436',
     fontWeight: 400,
+  },
+  fileNameBtn: {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    margin: 0,
+    color: '#2d3436',
+    fontWeight: 400,
+    fontSize: 13,
+    cursor: 'pointer',
+    textAlign: 'left',
   },
   menuWrapper: {
     position: 'relative',

@@ -100,6 +100,12 @@ ipcMain.handle('gcs:download', async (_event, key: string, savePath: string) => 
   });
 });
 
+ipcMain.handle('gcs:previewFile', async (_event, key: string) => {
+  if (!gcsClient) throw new Error('Not connected');
+  // Returns the raw bytes; the renderer wraps them in a Blob / decodes text for display
+  return await gcsClient.downloadItem(key);
+});
+
 ipcMain.handle('gcs:downloadFolder', async (_event, folderKey: string, savePath: string) => {
   if (!gcsClient) throw new Error('Not connected');
   const folderName = folderKey.replace(/\/$/, '').split('/').pop() || 'folder';
