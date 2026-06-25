@@ -27,7 +27,7 @@ export function SavedConnections({ connections, onConnect, onEdit, onDelete, onN
           <div style={styles.brand}>
             <Logo size={44} />
             <div>
-              <h2 style={styles.title}>Google Cloud View <span style={styles.version}>v0.0.21</span></h2>
+              <h2 style={styles.title}>Google Cloud View <span style={styles.version}>v0.0.22</span></h2>
               <p style={styles.subtitle}>Select a saved connection or create a new one</p>
             </div>
           </div>

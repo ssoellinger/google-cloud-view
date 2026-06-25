@@ -190,16 +190,18 @@ export function FileBrowser({
       if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
 
       let cmp = 0;
+      // Guard against missing fields (e.g. an object without LastModified) — a
+      // bare .localeCompare on undefined would throw and blank the whole view.
       if (sortField === 'name') {
-        cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        cmp = (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
       } else if (sortField === 'size') {
         const sizeA = a.isFolder ? computeFolderSize(a) : a.size;
         const sizeB = b.isFolder ? computeFolderSize(b) : b.size;
-        cmp = sizeA - sizeB;
+        cmp = (sizeA || 0) - (sizeB || 0);
       } else {
         const modA = a.isFolder ? computeFolderLastModified(a) : a.lastModified;
         const modB = b.isFolder ? computeFolderLastModified(b) : b.lastModified;
-        cmp = modA.localeCompare(modB);
+        cmp = (modA || '').localeCompare(modB || '');
       }
       return sortDirection === 'asc' ? cmp : -cmp;
     });
@@ -683,6 +685,7 @@ const styles: Record<string, React.CSSProperties> = {
   table: {
     width: '100%',
     borderCollapse: 'collapse',
+    tableLayout: 'fixed',
   },
   th: {
     textAlign: 'left',

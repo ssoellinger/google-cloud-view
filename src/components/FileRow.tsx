@@ -173,7 +173,7 @@ export function FileRow({
           />
         </td>
         <td style={styles.nameCell}>
-          <span style={{ paddingLeft: indent, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ paddingLeft: indent, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
             {isFolder && hasChildren !== false ? (
               <button
                 style={styles.chevron}
@@ -208,13 +208,13 @@ export function FileRow({
                 <button style={styles.btnTiny} onClick={handleRename}>OK</button>
               </span>
             ) : isFolder ? (
-              <button style={styles.link} onClick={() => onToggleExpand?.()}>
+              <button style={{ ...styles.link, ...styles.ellipsis }} onClick={() => onToggleExpand?.()} title={name}>
                 {name}
               </button>
             ) : onPreview ? (
-              <button style={styles.fileNameBtn} onClick={onPreview} title="Preview">{name}</button>
+              <button style={{ ...styles.fileNameBtn, ...styles.ellipsis }} onClick={onPreview} title={name}>{name}</button>
             ) : (
-              <span style={styles.fileName}>{name}</span>
+              <span style={{ ...styles.fileName, ...styles.ellipsis }} title={name}>{name}</span>
             )}
           </span>
         </td>
@@ -302,6 +302,14 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '9px 14px',
     fontSize: 13,
     color: '#2d3436',
+    overflow: 'hidden',
+  },
+  ellipsis: {
+    flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   metaCell: {
     padding: '9px 14px',
@@ -345,6 +353,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 0,
     fontSize: 13,
     fontWeight: 600,
+    textAlign: 'left',
   },
   fileName: {
     color: '#2d3436',
