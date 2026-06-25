@@ -155,23 +155,28 @@ export class GcsClient {
   }
 
   async listFolders(prefix?: string): Promise<ListResult> {
-    const queryParams: string[] = ['list-type=2', 'max-keys=1000', 'delimiter=/'];
-
-    if (prefix) queryParams.push(`prefix=${encodeURIComponent(prefix)}`);
-
-    const query = '?' + queryParams.join('&');
-    const url = `${this.config.serviceUrl}${this.config.bucketName}/${query}`;
-    const canonicalResource = `/${this.config.bucketName}/`;
-
-    const response = await this.sendRequest('GET', url, canonicalResource);
-    const xml = await response.text();
-    const doc = this.parser.parse(xml);
-
-    const root = doc.ListBucketResult;
     const objects: GoogleCloudObject[] = [];
     const folders: string[] = [];
+    let continuationToken: string | undefined;
 
-    if (root) {
+    // Page through every result; a single prefix can hold more than max-keys entries
+    while (true) {
+      const queryParams: string[] = ['list-type=2', 'max-keys=1000', 'delimiter=/'];
+
+      if (prefix) queryParams.push(`prefix=${encodeURIComponent(prefix)}`);
+      if (continuationToken) queryParams.push(`continuation-token=${encodeURIComponent(continuationToken)}`);
+
+      const query = '?' + queryParams.join('&');
+      const url = `${this.config.serviceUrl}${this.config.bucketName}/${query}`;
+      const canonicalResource = `/${this.config.bucketName}/`;
+
+      const response = await this.sendRequest('GET', url, canonicalResource);
+      const xml = await response.text();
+      const doc = this.parser.parse(xml);
+
+      const root = doc.ListBucketResult;
+      if (!root) break;
+
       const contents = root.Contents
         ? Array.isArray(root.Contents) ? root.Contents : [root.Contents]
         : [];
@@ -192,6 +197,14 @@ export class GcsClient {
 
       for (const p of prefixes) {
         folders.push(p.Prefix);
+      }
+
+      const isTruncated = root.IsTruncated === true || root.IsTruncated === 'true';
+      if (!isTruncated) break;
+
+      continuationToken = root.NextContinuationToken;
+      if (!continuationToken) {
+        throw new Error('Response is truncated but no NextContinuationToken was provided.');
       }
     }
 
