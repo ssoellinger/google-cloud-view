@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, nativeImage, clipboard } from 'electron';
 import { createWriteStream } from 'fs';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -98,6 +98,10 @@ ipcMain.handle('gcs:download', async (_event, key: string, savePath: string) => 
   mainWindow?.webContents.send('gcs:progress', {
     operation: 'download', key, fileName, loaded: 1, total: 1, percent: 100,
   });
+});
+
+ipcMain.handle('clipboard:writeText', (_event, text: string) => {
+  clipboard.writeText(text);
 });
 
 ipcMain.handle('gcs:previewFile', async (_event, key: string) => {

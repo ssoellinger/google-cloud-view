@@ -37,6 +37,7 @@ interface GcsApi {
   onProgress(callback: (data: ProgressData) => void): any;
   removeProgressListener(handler: any): void;
   getPathForFile(file: File): string;
+  copyText(text: string): Promise<void>;
 }
 
 interface Window {

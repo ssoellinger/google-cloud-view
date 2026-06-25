@@ -26,4 +26,5 @@ contextBridge.exposeInMainWorld('gcsApi', {
     ipcRenderer.removeListener('gcs:progress', handler);
   },
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  copyText: (text: string) => ipcRenderer.invoke('clipboard:writeText', text),
 });

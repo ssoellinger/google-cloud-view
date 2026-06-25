@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 interface Props {
   prefix: string;
   onNavigate: (prefix: string) => void;
@@ -5,6 +7,13 @@ interface Props {
 
 export function Breadcrumb({ prefix, onNavigate }: Props) {
   const parts = prefix.split('/').filter(Boolean);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    window.gcsApi.copyText(prefix);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
 
   const crumbs: { label: string; path: string }[] = [
     { label: 'Root', path: '' },
@@ -30,6 +39,15 @@ export function Breadcrumb({ prefix, onNavigate }: Props) {
           )}
         </span>
       ))}
+      {parts.length > 0 && (
+        <button
+          style={styles.copyBtn}
+          onClick={handleCopy}
+          title="Copy this folder's path"
+        >
+          {copied ? '✓ Copied' : '⧉ Copy path'}
+        </button>
+      )}
     </div>
   );
 }
@@ -69,5 +87,16 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#b2bec3',
     margin: '0 1px',
     fontSize: 13,
+  },
+  copyBtn: {
+    marginLeft: 8,
+    background: 'none',
+    border: '1px solid #e0e4ea',
+    color: '#636e72',
+    cursor: 'pointer',
+    padding: '3px 8px',
+    fontSize: 11,
+    borderRadius: 6,
+    fontWeight: 500,
   },
 };

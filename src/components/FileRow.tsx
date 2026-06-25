@@ -35,6 +35,7 @@ export function FileRow({
   const [showSubfolderInput, setShowSubfolderInput] = useState(false);
   const [subfolderName, setSubfolderName] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [copiedPath, setCopiedPath] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -120,6 +121,12 @@ export function FileRow({
     } else {
       onMove(sourceKey, destKey);
     }
+  };
+
+  const handleCopyPath = () => {
+    window.gcsApi.copyText(objectKey);
+    setCopiedPath(true);
+    setTimeout(() => { setCopiedPath(false); setMenuOpen(false); }, 900);
   };
 
   const handleCreateSubfolder = () => {
@@ -214,6 +221,9 @@ export function FileRow({
                 )}
                 <button style={styles.menuItem} onClick={() => { setMenuOpen(false); onDownload(objectKey); }}>
                   <span style={styles.menuIcon}>&#8595;</span> {isFolder ? 'Download as ZIP' : 'Download'}
+                </button>
+                <button style={styles.menuItem} onClick={handleCopyPath}>
+                  <span style={styles.menuIcon}>&#10697;</span> {copiedPath ? 'Copied!' : 'Copy path'}
                 </button>
                 <button style={styles.menuItem} onClick={() => { setMenuOpen(false); setRenaming(true); setNewName(name); }}>
                   <span style={styles.menuIcon}>&#9998;</span> Rename
