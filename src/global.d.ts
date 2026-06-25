@@ -21,6 +21,7 @@ interface GcsApi {
     folders: string[];
   }>;
   upload(key: string, filePath: string): Promise<void>;
+  uploadPaths(paths: string[], destPrefix: string): Promise<void>;
   download(key: string, savePath: string): Promise<void>;
   previewFile(key: string): Promise<Uint8Array>;
   search(prefix: string, query: string): Promise<{

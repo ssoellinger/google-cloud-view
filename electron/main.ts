@@ -4,6 +4,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import archiver from 'archiver';
 import { GcsClient } from './gcs/gcs-client';
+import { expandUploadPaths } from './gcs/upload-paths';
 import type { StorageBlobConfig } from './gcs/gcs-types';
 
 let mainWindow: BrowserWindow | null = null;
@@ -61,13 +62,7 @@ ipcMain.handle('gcs:list', async (_event, prefix: string) => {
   return await gcsClient.listFolders(prefix || undefined);
 });
 
-ipcMain.handle('gcs:upload', async (_event, key: string, filePath: string) => {
-  if (!gcsClient) throw new Error('Not connected');
-  const fileName = filePath.replace(/\\/g, '/').split('/').pop() || key;
-  mainWindow?.webContents.send('gcs:progress', {
-    operation: 'upload', key, fileName, loaded: 0, total: 1, percent: 0,
-  });
-  const buffer = await readFile(filePath);
+function mimeForPath(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
   const mimeTypes: Record<string, string> = {
     jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
@@ -75,10 +70,42 @@ ipcMain.handle('gcs:upload', async (_event, key: string, filePath: string) => {
     json: 'application/json', xml: 'application/xml', csv: 'text/csv',
     zip: 'application/zip', mp4: 'video/mp4', mp3: 'audio/mpeg',
   };
-  const contentType = mimeTypes[ext] || 'application/octet-stream';
-  await gcsClient.uploadItem(key, buffer, contentType);
+  return mimeTypes[ext] || 'application/octet-stream';
+}
+
+ipcMain.handle('gcs:upload', async (_event, key: string, filePath: string) => {
+  if (!gcsClient) throw new Error('Not connected');
+  const fileName = filePath.replace(/\\/g, '/').split('/').pop() || key;
+  mainWindow?.webContents.send('gcs:progress', {
+    operation: 'upload', key, fileName, loaded: 0, total: 1, percent: 0,
+  });
+  const buffer = await readFile(filePath);
+  await gcsClient.uploadItem(key, buffer, mimeForPath(filePath));
   mainWindow?.webContents.send('gcs:progress', {
     operation: 'upload', key, fileName, loaded: 1, total: 1, percent: 100,
+  });
+});
+
+// Upload a mix of files and folders. Folders are walked recursively and their
+// structure is recreated under destPrefix.
+ipcMain.handle('gcs:uploadPaths', async (_event, paths: string[], destPrefix: string) => {
+  if (!gcsClient) throw new Error('Not connected');
+
+  const items = await expandUploadPaths(paths, destPrefix);
+
+  for (let i = 0; i < items.length; i++) {
+    const { filePath, key } = items[i];
+    const fileName = key.split('/').pop() || key;
+    mainWindow?.webContents.send('gcs:progress', {
+      operation: 'upload', key, fileName, loaded: i, total: items.length,
+      percent: items.length > 0 ? Math.round((i / items.length) * 100) : 0,
+    });
+    const buffer = await readFile(filePath);
+    await gcsClient.uploadItem(key, buffer, mimeForPath(filePath));
+  }
+  mainWindow?.webContents.send('gcs:progress', {
+    operation: 'upload', key: destPrefix, fileName: `${items.length} file(s)`,
+    loaded: items.length, total: items.length, percent: 100,
   });
 });
 

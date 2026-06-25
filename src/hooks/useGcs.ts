@@ -208,11 +208,7 @@ export function useGcs() {
     const dest = targetPrefix ?? currentPrefix;
     setLoading(true);
     try {
-      for (const filePath of filePaths) {
-        const fileName = filePath.replace(/\\/g, '/').split('/').pop()!;
-        const key = dest + fileName;
-        await window.gcsApi.upload(key, filePath);
-      }
+      await window.gcsApi.uploadPaths(filePaths, dest);
       await refreshList();
     } catch (err: unknown) {
       setError(getErrorMessage(err));
@@ -221,16 +217,13 @@ export function useGcs() {
     }
   }, [currentPrefix, refreshList]);
 
+  // Accepts files and folders (folders are uploaded recursively, structure preserved)
   const uploadFromPaths = useCallback(async (paths: string[], targetPrefix?: string) => {
     setError(null);
     const dest = targetPrefix ?? currentPrefix;
     setLoading(true);
     try {
-      for (const filePath of paths) {
-        const fileName = filePath.replace(/\\/g, '/').split('/').pop()!;
-        const key = dest + fileName;
-        await window.gcsApi.upload(key, filePath);
-      }
+      await window.gcsApi.uploadPaths(paths, dest);
       await refreshList();
     } catch (err: unknown) {
       setError(getErrorMessage(err));

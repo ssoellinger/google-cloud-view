@@ -22,7 +22,7 @@ const SECTIONS: Section[] = [
       { icon: '📄', title: 'Drag a file’s icon → download to your computer', desc: 'Grab the file icon (📄) and drag it onto your desktop or an Explorer window to download it there.' },
       { icon: '↗', title: 'Drag a row onto a folder → move it', desc: 'Drag anywhere else on a row and drop it on a folder to move the item into that folder.' },
       { icon: '⧉', title: 'Hold Ctrl while dragging → copy', desc: 'Same as a move, but keeps the original — the item is copied into the target folder instead of moved.' },
-      { icon: '⬆', title: 'Drag files in from your computer → upload', desc: 'Drop files from Explorer anywhere in the window to upload them here, or drop them onto a folder to upload into it.' },
+      { icon: '⬆', title: 'Drag files or folders in → upload', desc: 'Drop files or whole folders from Explorer anywhere in the window to upload, or drop them onto a folder to upload into it. Dropped folders keep their structure.' },
     ],
   },
   {
