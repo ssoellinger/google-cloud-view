@@ -74,6 +74,46 @@ export function FileBrowser({
     return () => window.gcsApi.removeProgressListener(handler);
   }, []);
 
+  // Latest state/handlers for the global keyboard listener (avoids stale closures)
+  const kbStateRef = useRef<{
+    modalOpen: boolean;
+    selectedSize: number;
+    confirmDelete: boolean;
+    searchActive: boolean;
+    selectAll: (checked: boolean) => void;
+    doDelete: () => void;
+    cancelConfirm: () => void;
+    clearSelection: () => void;
+    clearSearch: () => void;
+    activateSelected: () => void;
+  } | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const s = kbStateRef.current;
+      if (!s || s.modalOpen) return; // let open modals handle their own keys
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        s.selectAll(true);
+      } else if (e.key === 'Delete' && s.selectedSize > 0) {
+        e.preventDefault();
+        s.doDelete();
+      } else if (e.key === 'Escape') {
+        if (s.confirmDelete) s.cancelConfirm();
+        else if (s.selectedSize > 0) s.clearSelection();
+        else if (s.searchActive) s.clearSearch();
+      } else if (e.key === 'Enter' && s.selectedSize === 1) {
+        e.preventDefault();
+        s.activateSelected();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const handleContainerDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.types.includes('Files')) {
@@ -260,6 +300,37 @@ export function FileBrowser({
   const targetLabel = targetPrefix
     ? targetPrefix.replace(/\/$/, '').split('/').pop()!
     : undefined;
+
+  const findNode = (nodes: TreeNode[], path: string): TreeNode | undefined => {
+    for (const n of nodes) {
+      if (n.fullPath === path) return n;
+      if (n.children) {
+        const found = findNode(n.children, path);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  };
+
+  // Keep the keyboard listener's view of state/handlers current on every render
+  kbStateRef.current = {
+    modalOpen: !!preview || showHelp,
+    selectedSize: selected.size,
+    confirmDelete,
+    searchActive: searchQuery.trim().length > 0,
+    selectAll: handleSelectAll,
+    doDelete: handleDelete,
+    cancelConfirm: () => setConfirmDelete(false),
+    clearSelection: () => setSelected(new Set()),
+    clearSearch: () => setSearchQuery(''),
+    activateSelected: () => {
+      const key = Array.from(selected)[0];
+      if (!key) return;
+      if (key.endsWith('/')) { onToggleFolder(key); return; }
+      const node = findNode(treeData, key);
+      if (node) setPreview({ key: node.fullPath, name: node.name, size: node.size });
+    },
+  };
 
   const computeFolderSize = (node: TreeNode): number => {
     if (!node.isFolder) return node.size;
