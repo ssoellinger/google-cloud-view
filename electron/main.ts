@@ -5,18 +5,24 @@ import { join } from 'path';
 import archiver from 'archiver';
 import { GcsClient } from './gcs/gcs-client';
 import { expandUploadPaths } from './gcs/upload-paths';
+import { APP_ICON_DATA_URL } from './app-icon';
 import type { StorageBlobConfig } from './gcs/gcs-types';
+
+const appIcon = nativeImage.createFromDataURL(APP_ICON_DATA_URL);
 
 let mainWindow: BrowserWindow | null = null;
 let gcsClient: GcsClient | null = null;
 
 function createWindow() {
+  // Group under our own taskbar identity on Windows so the window icon is used
+  app.setAppUserModelId('com.sisoe.google-cloud-view');
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
     minHeight: 600,
     title: 'Google Cloud View',
+    icon: appIcon,
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
