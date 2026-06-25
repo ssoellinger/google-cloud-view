@@ -239,13 +239,14 @@ export function useGcs() {
     }
   }, [currentPrefix, refreshList]);
 
-  const downloadFile = useCallback(async (key: string) => {
+  // Returns true if a download actually started (false if the save dialog was cancelled)
+  const downloadFile = useCallback(async (key: string): Promise<boolean> => {
     setError(null);
     const isFolder = key.endsWith('/');
     const baseName = key.replace(/\/$/, '').split('/').pop() || 'download';
     const fileName = isFolder ? baseName + '.zip' : baseName;
     const savePath = await window.gcsApi.saveFileDialog(fileName);
-    if (!savePath) return;
+    if (!savePath) return false;
 
     setLoading(true);
     try {
@@ -254,29 +255,32 @@ export function useGcs() {
       } else {
         await window.gcsApi.download(key, savePath);
       }
+      return true;
     } catch (err: unknown) {
       setError(getErrorMessage(err));
+      return false;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const downloadSelected = useCallback(async (keys: string[]) => {
+  const downloadSelected = useCallback(async (keys: string[]): Promise<boolean> => {
     setError(null);
-    if (keys.length === 0) return;
+    if (keys.length === 0) return false;
     // A single item reuses the existing per-item download (keeps its naming/ZIP behavior)
     if (keys.length === 1) {
-      await downloadFile(keys[0]);
-      return;
+      return await downloadFile(keys[0]);
     }
     const savePath = await window.gcsApi.saveFileDialog('download.zip');
-    if (!savePath) return;
+    if (!savePath) return false;
 
     setLoading(true);
     try {
       await window.gcsApi.downloadSelection(keys, savePath);
+      return true;
     } catch (err: unknown) {
       setError(getErrorMessage(err));
+      return false;
     } finally {
       setLoading(false);
     }

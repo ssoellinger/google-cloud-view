@@ -20,7 +20,7 @@ interface Props {
   onUpload: (targetPrefix?: string) => void;
   onRefresh: () => void;
   onDownload: (key: string) => void;
-  onDownloadSelected: (keys: string[]) => void;
+  onDownloadSelected: (keys: string[]) => Promise<boolean>;
   onDelete: (keys: string[]) => void;
   onMove: (sourceKey: string, destKey: string) => void;
   onCopy: (sourceKey: string, destKey: string) => void;
@@ -263,9 +263,10 @@ export function FileBrowser({
     setSelected(checked ? new Set(visibleKeys) : new Set());
   };
 
-  const handleDownloadSelected = () => {
+  const handleDownloadSelected = async () => {
     if (selected.size === 0) return;
-    onDownloadSelected(Array.from(selected));
+    const downloaded = await onDownloadSelected(Array.from(selected));
+    if (downloaded) setSelected(new Set()); // keep the selection if the save dialog was cancelled
   };
 
   const handleDelete = () => {
