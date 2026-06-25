@@ -61,6 +61,20 @@ export function FileRow({
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  // Grabbing the file icon drags the object out to the desktop as a native download,
+  // instead of starting an in-app move/copy like the rest of the row.
+  // Prefetch on mousedown so the temp file is on disk before the drag begins —
+  // startDrag must run synchronously within the gesture, which an async download breaks.
+  const handleDragOutPrepare = () => {
+    window.gcsApi.prepareDrag(objectKey);
+  };
+
+  const handleDragOutStart = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.gcsApi.startDragOut(objectKey);
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
@@ -152,7 +166,13 @@ export function FileRow({
             {isFolder ? (
               <span style={styles.folderIcon}>&#128193;</span>
             ) : (
-              <span style={styles.fileIcon}>&#128196;</span>
+              <span
+                style={styles.fileIcon}
+                draggable
+                onMouseDown={handleDragOutPrepare}
+                onDragStart={handleDragOutStart}
+                title="Drag to your desktop to download"
+              >&#128196;</span>
             )}
             {renaming ? (
               <span style={styles.renameInput}>
@@ -283,6 +303,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 17,
     flexShrink: 0,
     opacity: 0.7,
+    cursor: 'grab',
   },
   link: {
     background: 'none',

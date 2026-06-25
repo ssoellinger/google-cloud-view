@@ -1,6 +1,6 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, nativeImage } from 'electron';
 import { createWriteStream } from 'fs';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import archiver from 'archiver';
 import { GcsClient } from './gcs/gcs-client';
@@ -183,6 +183,72 @@ ipcMain.handle('gcs:downloadSelection', async (_event, keys: string[], savePath:
 
   await archive.finalize();
   await finished;
+});
+
+// 1x1 transparent PNG, used only if a native file-type icon can't be resolved
+const FALLBACK_DRAG_ICON =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+// startDrag must be invoked synchronously inside the drag gesture, so the file has to
+// already be on disk. We prefetch on mousedown and reuse the result, keyed by object key.
+const dragFileCache = new Map<string, Promise<{ tempPath: string; icon: import('electron').NativeImage }>>();
+
+function prepareDragFile(key: string) {
+  const existing = dragFileCache.get(key);
+  if (existing) return existing;
+
+  const task = (async () => {
+    const fileName = key.split('/').pop() || 'download';
+    const dir = join(app.getPath('temp'), 'google-cloud-view-drag');
+    await mkdir(dir, { recursive: true });
+    const tempPath = join(dir, fileName);
+
+    mainWindow?.webContents.send('gcs:progress', {
+      operation: 'download', key, fileName, loaded: 0, total: 1, percent: 0,
+    });
+    const buffer = await gcsClient!.downloadItemWithProgress(key, (loaded, total) => {
+      mainWindow?.webContents.send('gcs:progress', {
+        operation: 'download', key, fileName, loaded, total,
+        percent: total > 0 ? Math.round((loaded / total) * 100) : 0,
+      });
+    });
+    await writeFile(tempPath, buffer);
+    mainWindow?.webContents.send('gcs:progress', {
+      operation: 'download', key, fileName, loaded: 1, total: 1, percent: 100,
+    });
+
+    let icon = nativeImage.createFromDataURL(FALLBACK_DRAG_ICON);
+    try {
+      const fileIcon = await app.getFileIcon(tempPath, { size: 'normal' });
+      if (!fileIcon.isEmpty()) icon = fileIcon;
+    } catch {
+      // keep fallback icon
+    }
+
+    return { tempPath, icon };
+  })();
+
+  dragFileCache.set(key, task);
+  task.catch(() => dragFileCache.delete(key)); // allow a retry if the download failed
+  return task;
+}
+
+// Prefetch on mousedown so the temp file is ready by the time the drag starts.
+ipcMain.handle('gcs:prepareDrag', async (_event, key: string) => {
+  if (!gcsClient) throw new Error('Not connected');
+  try {
+    await prepareDragFile(key);
+  } catch {
+    // any error is surfaced when the actual drag is attempted
+  }
+});
+
+// Hand the (ideally already-cached) temp file to the OS as a native drag source,
+// so the user can drag a row straight onto the desktop / Explorer to download it.
+ipcMain.handle('gcs:startDragOut', async (event, key: string) => {
+  if (!gcsClient) throw new Error('Not connected');
+  const { tempPath, icon } = await prepareDragFile(key);
+  event.sender.startDrag({ file: tempPath, icon });
 });
 
 ipcMain.handle('gcs:delete', async (_event, key: string) => {
