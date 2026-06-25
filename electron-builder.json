@@ -18,7 +18,7 @@
     "package.json"
   ],
   "win": {
-    "target": "portable",
+    "target": ["portable", "zip"],
     "icon": "assets/icon.ico",
     "signAndEditExecutable": false
   }
