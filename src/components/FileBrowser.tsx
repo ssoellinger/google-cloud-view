@@ -54,6 +54,7 @@ export function FileBrowser({
   const [searchTruncated, setSearchTruncated] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
+  const [renamingKey, setRenamingKey] = useState<string | null>(null);
 
   // Navigating away exits server-side search mode
   useEffect(() => { setSearchResults(null); setSearchError(null); }, [currentPrefix]);
@@ -94,6 +95,7 @@ export function FileBrowser({
     clearSelection: () => void;
     clearSearch: () => void;
     activateSelected: () => void;
+    startRename: () => void;
   } | null>(null);
 
   useEffect(() => {
@@ -116,6 +118,9 @@ export function FileBrowser({
       } else if (e.key === 'Enter' && s.selectedSize === 1) {
         e.preventDefault();
         s.activateSelected();
+      } else if (e.key === 'F2' && s.selectedSize === 1) {
+        e.preventDefault();
+        s.startRename();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -377,6 +382,10 @@ export function FileBrowser({
       const node = findNode(treeData, key);
       if (node) setPreview({ key: node.fullPath, name: node.name, size: node.size });
     },
+    startRename: () => {
+      const key = Array.from(selected)[0];
+      if (key) setRenamingKey(key);
+    },
   };
 
   const computeFolderSize = (node: TreeNode): number => {
@@ -417,6 +426,8 @@ export function FileBrowser({
           onToggleExpand={node.isFolder ? () => onToggleFolder(node.fullPath) : undefined}
           onSelect={handleSelect}
           onPreview={node.isFolder ? undefined : () => setPreview({ key: node.fullPath, name: node.name, size: node.size })}
+          shouldRename={renamingKey === node.fullPath}
+          onRenameConsumed={() => setRenamingKey(null)}
           onDownload={onDownload}
           onMove={onMove}
           onCopyToFolder={onCopy}

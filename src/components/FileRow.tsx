@@ -15,6 +15,8 @@ interface Props {
   onToggleExpand?: () => void;
   onSelect: (key: string, checked: boolean, shiftKey: boolean) => void;
   onPreview?: () => void;
+  shouldRename?: boolean;
+  onRenameConsumed?: () => void;
   onDownload: (key: string) => void;
   onMove: (sourceKey: string, destKey: string) => void;
   onCopyToFolder?: (sourceKey: string, destKey: string) => void;
@@ -27,7 +29,7 @@ interface Props {
 export function FileRow({
   name, objectKey, size, lastModified, isFolder,
   isSelected, currentPrefix, depth, isExpanded, hasChildren, onToggleExpand,
-  onSelect, onPreview, onDownload, onMove, onCopyToFolder, onDuplicate, onCreateSubfolder, onUploadToFolder, onDismissDropZone,
+  onSelect, onPreview, shouldRename, onRenameConsumed, onDownload, onMove, onCopyToFolder, onDuplicate, onCreateSubfolder, onUploadToFolder, onDismissDropZone,
 }: Props) {
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState(name);
@@ -46,6 +48,16 @@ export function FileRow({
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [menuOpen]);
+
+  // External rename trigger (e.g. the F2 shortcut) starts the inline rename
+  useEffect(() => {
+    if (shouldRename) {
+      setNewName(name);
+      setRenaming(true);
+      onRenameConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldRename]);
 
   const handleRename = () => {
     if (newName.trim() && newName !== name) {
@@ -149,6 +161,7 @@ export function FileRow({
         onDragOver={handleDragOver}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
+        onDoubleClick={() => { if (isFolder) onToggleExpand?.(); else onPreview?.(); }}
       >
         <td style={styles.cell}>
           <input

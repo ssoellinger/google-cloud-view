@@ -28,7 +28,7 @@ const SECTIONS: Section[] = [
   {
     heading: 'Viewing files',
     items: [
-      { icon: '👁', title: 'Click a file name to preview', desc: 'Opens images, video, audio, PDF, and text/code in a viewer without downloading. Large or unsupported files offer a download instead. Also available as “Preview” in the row menu.' },
+      { icon: '👁', title: 'Click a file name (or double-click a row) to open', desc: 'Opens images, video, audio, PDF, and text/code in a viewer without downloading; double-clicking a folder row expands it. Large or unsupported files offer a download instead. Preview is also in the row menu.' },
     ],
   },
   {
@@ -46,6 +46,7 @@ const SECTIONS: Section[] = [
       { icon: '⌨', title: 'Ctrl + A — select all visible', desc: 'Selects every row currently shown.' },
       { icon: '⌫', title: 'Delete — delete the selection', desc: 'Starts a delete of the checked items (asks you to confirm).' },
       { icon: '↵', title: 'Enter — preview or open', desc: 'With a single item selected, previews the file or opens the folder.' },
+      { icon: '✎', title: 'F2 — rename', desc: 'With a single item selected, starts renaming it inline.' },
       { icon: '⎋', title: 'Esc — clear / cancel', desc: 'Cancels a pending delete, clears the selection, or clears the search.' },
     ],
   },
