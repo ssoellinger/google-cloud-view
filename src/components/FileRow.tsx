@@ -13,7 +13,7 @@ interface Props {
   isExpanded?: boolean;
   hasChildren?: boolean;
   onToggleExpand?: () => void;
-  onSelect: (key: string, checked: boolean) => void;
+  onSelect: (key: string, checked: boolean, shiftKey: boolean) => void;
   onPreview?: () => void;
   onDownload: (key: string) => void;
   onMove: (sourceKey: string, destKey: string) => void;
@@ -147,7 +147,8 @@ export function FileRow({
           <input
             type="checkbox"
             checked={isSelected}
-            onChange={e => onSelect(objectKey, e.target.checked)}
+            onChange={() => {}}
+            onClick={e => { const cb = e.target as HTMLInputElement; onSelect(objectKey, cb.checked, e.shiftKey); }}
             style={{ accentColor: '#6c5ce7' }}
           />
         </td>

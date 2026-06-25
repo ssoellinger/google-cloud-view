@@ -219,33 +219,48 @@ export function FileBrowser({
     setShowDropZone(false);
   };
 
-  const handleSelect = (key: string, checked: boolean) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      if (checked) next.add(key); else next.delete(key);
-      return next;
-    });
-  };
+  const anchorIndexRef = useRef<number | null>(null);
 
-  const collectVisibleKeys = (nodes: TreeNode[]): string[] => {
+  // Visible rows in the exact order they render (sorted + search-filtered), so
+  // range-select and select-all operate on what the user actually sees.
+  const renderedRoots = sortNodes(filterTree(treeData, searchQuery.trim()));
+  const collectRenderedKeys = (nodes: TreeNode[]): string[] => {
     const keys: string[] = [];
     for (const node of nodes) {
       keys.push(node.fullPath);
-      if (node.isFolder && expandedPaths.has(node.fullPath) && node.children) {
-        keys.push(...collectVisibleKeys(node.children));
+      if (node.isFolder && (expandedPaths.has(node.fullPath) || isSearchActive) && node.children) {
+        keys.push(...collectRenderedKeys(node.children));
       }
     }
     return keys;
   };
+  const visibleKeys = collectRenderedKeys(renderedRoots);
 
-  const visibleKeys = collectVisibleKeys(treeData);
+  const handleSelect = (key: string, checked: boolean, shiftKey: boolean) => {
+    const idx = visibleKeys.indexOf(key);
+    if (shiftKey && anchorIndexRef.current !== null && idx !== -1) {
+      // Apply the clicked checkbox's new state across the whole range
+      const [from, to] = anchorIndexRef.current <= idx
+        ? [anchorIndexRef.current, idx]
+        : [idx, anchorIndexRef.current];
+      const range = visibleKeys.slice(from, to + 1);
+      setSelected(prev => {
+        const next = new Set(prev);
+        for (const k of range) { if (checked) next.add(k); else next.delete(k); }
+        return next;
+      });
+    } else {
+      setSelected(prev => {
+        const next = new Set(prev);
+        if (checked) next.add(key); else next.delete(key);
+        return next;
+      });
+    }
+    if (idx !== -1) anchorIndexRef.current = idx;
+  };
 
   const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelected(new Set(visibleKeys));
-    } else {
-      setSelected(new Set());
-    }
+    setSelected(checked ? new Set(visibleKeys) : new Set());
   };
 
   const handleDownloadSelected = () => {
@@ -462,8 +477,8 @@ export function FileBrowser({
             </tr>
           </thead>
           <tbody>
-            {renderTree(sortNodes(filterTree(treeData, searchQuery.trim())), 0)}
-            {!loading && (isSearchActive ? filterTree(treeData, searchQuery.trim()).length === 0 : treeData.length === 0) && (
+            {renderTree(renderedRoots, 0)}
+            {!loading && (isSearchActive ? renderedRoots.length === 0 : treeData.length === 0) && (
               <tr>
                 <td colSpan={5} style={styles.empty}>
                   <div style={{ fontSize: 32, marginBottom: 8, color: '#dfe6e9' }}>{isSearchActive ? '\uD83D\uDD0D' : '\uD83D\uDCC1'}</div>
