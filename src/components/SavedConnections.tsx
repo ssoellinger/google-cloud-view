@@ -1,5 +1,6 @@
 import { formatDate } from '../utils/format';
 import type { SavedConnection } from '../hooks/useConnections';
+import { Logo } from './Logo';
 
 interface Props {
   connections: SavedConnection[];
@@ -23,9 +24,12 @@ export function SavedConnections({ connections, onConnect, onEdit, onDelete, onN
     <div style={styles.container}>
       <div style={styles.card}>
         <div style={styles.header}>
-          <div>
-            <h2 style={styles.title}>Google Cloud View <span style={styles.version}>v0.0.18</span></h2>
-            <p style={styles.subtitle}>Select a saved connection or create a new one</p>
+          <div style={styles.brand}>
+            <Logo size={44} />
+            <div>
+              <h2 style={styles.title}>Google Cloud View <span style={styles.version}>v0.0.19</span></h2>
+              <p style={styles.subtitle}>Select a saved connection or create a new one</p>
+            </div>
           </div>
           <button style={styles.primaryBtn} onClick={onNewConnection}>+ New Connection</button>
         </div>
@@ -86,6 +90,11 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 24,
+  },
+  brand: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
   },
   title: {
     margin: 0,

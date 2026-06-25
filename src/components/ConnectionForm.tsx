@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { GcsConfig } from '../hooks/useGcs';
+import { Logo } from './Logo';
 
 interface Props {
   onConnect: (config: GcsConfig) => void;
@@ -84,9 +85,12 @@ export function ConnectionForm({
             <span style={styles.backArrow}>&larr;</span> Back to connections
           </button>
         )}
-        <h2 style={styles.title}>
-          {savedConnectionId ? 'Edit Connection' : 'New Connection'}
-        </h2>
+        <div style={styles.brand}>
+          <Logo size={36} />
+          <h2 style={styles.title}>
+            {savedConnectionId ? 'Edit Connection' : 'New Connection'}
+          </h2>
+        </div>
         <p style={styles.subtitle}>Enter your GCS credentials to connect</p>
         <form onSubmit={handleSubmit} style={styles.form}>
           <label style={styles.label}>
@@ -207,6 +211,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   backArrow: {
     fontSize: 16,
+  },
+  brand: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
   },
   title: {
     margin: 0,

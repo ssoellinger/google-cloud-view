@@ -7,6 +7,7 @@ import { FileRow } from './FileRow';
 import { ProgressBar } from './ProgressBar';
 import { HelpModal } from './HelpModal';
 import { PreviewModal } from './PreviewModal';
+import { Logo } from './Logo';
 
 type SortField = 'name' | 'size' | 'modified';
 type SortDirection = 'asc' | 'desc';
@@ -458,7 +459,10 @@ export function FileBrowser({
         </div>
       )}
       <div style={styles.header}>
-        <Breadcrumb prefix={currentPrefix} onNavigate={onNavigate} />
+        <div style={styles.headerLeft}>
+          <Logo size={28} />
+          <Breadcrumb prefix={currentPrefix} onNavigate={onNavigate} />
+        </div>
         <div style={styles.headerActions}>
           <button style={styles.helpBtn} onClick={() => setShowHelp(true)} title="How drag & drop and the other actions work">
             <span style={styles.helpIcon}>?</span> Help
@@ -619,6 +623,12 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     padding: '4px 0',
     borderBottom: '1px solid #eef0f4',
+  },
+  headerLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    minWidth: 0,
   },
   headerActions: {
     display: 'flex',
