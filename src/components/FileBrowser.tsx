@@ -57,8 +57,12 @@ export function FileBrowser({
   const [searching, setSearching] = useState(false);
   const [renamingKey, setRenamingKey] = useState<string | null>(null);
 
-  // Navigating away exits server-side search mode
-  useEffect(() => { setSearchResults(null); setSearchError(null); }, [currentPrefix]);
+  // Navigating away exits server-side search mode and drops the (now out-of-view) selection
+  useEffect(() => {
+    setSearchResults(null);
+    setSearchError(null);
+    setSelected(new Set());
+  }, [currentPrefix]);
 
   // Prevent Chromium from navigating to dropped files when they land outside a handler
   useEffect(() => {
@@ -259,6 +263,9 @@ export function FileBrowser({
   const handleSearchSubmit = async () => {
     const q = searchQuery.trim();
     if (!q) { setSearchResults(null); return; }
+    // Switching into the flat result set: drop the tree selection so it can't act invisibly
+    setSelected(new Set());
+    anchorIndexRef.current = null;
     setSearching(true);
     setSearchError(null);
     try {
@@ -503,7 +510,7 @@ export function FileBrowser({
               ? 'Searching the whole folder…'
               : `${searchResults!.length} match${searchResults!.length === 1 ? '' : 'es'} for "${searchQuery.trim()}"${searchTruncated ? ' (showing first 1000)' : ''}`}
           </span>
-          <button style={styles.cancelBtn} onClick={() => { setSearchResults(null); setSearchError(null); setSearchQuery(''); }}>Clear search</button>
+          <button style={styles.cancelBtn} onClick={() => { setSearchResults(null); setSearchError(null); setSearchQuery(''); setSelected(new Set()); }}>Clear search</button>
         </div>
       )}
       {confirmDelete && (
