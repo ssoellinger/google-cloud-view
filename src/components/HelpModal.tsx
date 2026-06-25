@@ -26,17 +26,35 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    heading: 'Viewing files',
+    items: [
+      { icon: '👁', title: 'Click a file name to preview', desc: 'Opens images, video, audio, PDF, and text/code in a viewer without downloading. Large or unsupported files offer a download instead. Also available as “Preview” in the row menu.' },
+    ],
+  },
+  {
     heading: 'Selecting & bulk actions',
     items: [
-      { icon: '☑', title: 'Check boxes to select items', desc: 'Use the checkbox in the header row to select everything currently visible.' },
-      { icon: '↓', title: 'Download Selected', desc: 'With multiple items checked, downloads them together as a single ZIP. A single item downloads directly.' },
+      { icon: '☑', title: 'Check boxes to select items', desc: 'Tick individual rows, or use the checkbox in the header row to select everything currently visible.' },
+      { icon: '⇧', title: 'Shift-click to select a range', desc: 'Click one checkbox, then Shift-click another to select every row in between. Shift-click again to deselect a range.' },
+      { icon: '↓', title: 'Download Selected', desc: 'With multiple items checked, downloads them together as a single ZIP; a single item downloads directly. The selection clears once the download starts.' },
       { icon: '🗑', title: 'Delete Selected', desc: 'Removes all checked items. You’ll be asked to confirm before anything is deleted.' },
+    ],
+  },
+  {
+    heading: 'Keyboard shortcuts',
+    items: [
+      { icon: '⌨', title: 'Ctrl + A — select all visible', desc: 'Selects every row currently shown.' },
+      { icon: '⌫', title: 'Delete — delete the selection', desc: 'Starts a delete of the checked items (asks you to confirm).' },
+      { icon: '↵', title: 'Enter — preview or open', desc: 'With a single item selected, previews the file or opens the folder.' },
+      { icon: '⎋', title: 'Esc — clear / cancel', desc: 'Cancels a pending delete, clears the selection, or clears the search.' },
     ],
   },
   {
     heading: 'Row menu (⋯)',
     items: [
+      { icon: '👁', title: 'Preview', desc: 'View the file inline without downloading.' },
       { icon: '↓', title: 'Download', desc: 'Download a single file, or download a whole folder as a ZIP archive.' },
+      { icon: '⧉', title: 'Copy path', desc: 'Copies the item’s object path to the clipboard.' },
       { icon: '✎', title: 'Rename / Duplicate', desc: 'Rename an item in place, or make a copy of it next to the original.' },
       { icon: '📁', title: 'Add subfolder', desc: 'Create a new folder inside the selected folder.' },
     ],
@@ -46,7 +64,8 @@ const SECTIONS: Section[] = [
     items: [
       { icon: '▴', title: 'Sort', desc: 'Click the Name, Size or Modified column headers to sort; click again to reverse.' },
       { icon: '🔍', title: 'Search', desc: 'Filter the items currently loaded in the tree by name.' },
-      { icon: '▸', title: 'Expand / Collapse', desc: 'Toggle folders with the arrow, or use Expand All / Collapse All in the toolbar. Use the breadcrumb to jump back up.' },
+      { icon: '🧭', title: 'Breadcrumb & copy path', desc: 'Use the breadcrumb to jump back up the tree; its “Copy path” button copies the current folder’s path.' },
+      { icon: '▸', title: 'Expand / Collapse', desc: 'Toggle folders with the arrow, or use Expand All / Collapse All in the toolbar.' },
     ],
   },
 ];
