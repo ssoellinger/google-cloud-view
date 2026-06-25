@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('gcsApi', {
   upload: (key: string, filePath: string) => ipcRenderer.invoke('gcs:upload', key, filePath),
   download: (key: string, savePath: string) => ipcRenderer.invoke('gcs:download', key, savePath),
   previewFile: (key: string) => ipcRenderer.invoke('gcs:previewFile', key),
+  search: (prefix: string, query: string) => ipcRenderer.invoke('gcs:search', prefix, query),
   downloadFolder: (folderKey: string, savePath: string) => ipcRenderer.invoke('gcs:downloadFolder', folderKey, savePath),
   downloadSelection: (keys: string[], savePath: string) => ipcRenderer.invoke('gcs:downloadSelection', keys, savePath),
   prepareDrag: (key: string) => ipcRenderer.invoke('gcs:prepareDrag', key),

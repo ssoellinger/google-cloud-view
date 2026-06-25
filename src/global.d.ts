@@ -23,6 +23,10 @@ interface GcsApi {
   upload(key: string, filePath: string): Promise<void>;
   download(key: string, savePath: string): Promise<void>;
   previewFile(key: string): Promise<Uint8Array>;
+  search(prefix: string, query: string): Promise<{
+    results: Array<{ key: string; size: number; lastModified: string }>;
+    truncated: boolean;
+  }>;
   downloadFolder(folderKey: string, savePath: string): Promise<void>;
   downloadSelection(keys: string[], savePath: string): Promise<void>;
   prepareDrag(key: string): Promise<void>;

@@ -14,9 +14,10 @@ interface Props {
   targetFolderName?: string;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  onSearchSubmit: () => void;
 }
 
-export function Toolbar({ onUpload, onRefresh, onDownloadSelected, onDelete, onCreateFolder, hasSelection, selectionCount, loading, onExpandAll, onCollapseAll, targetFolderName, searchQuery, onSearchChange }: Props) {
+export function Toolbar({ onUpload, onRefresh, onDownloadSelected, onDelete, onCreateFolder, hasSelection, selectionCount, loading, onExpandAll, onCollapseAll, targetFolderName, searchQuery, onSearchChange, onSearchSubmit }: Props) {
   const [showFolderInput, setShowFolderInput] = useState(false);
   const [folderName, setFolderName] = useState('');
 
@@ -76,11 +77,20 @@ export function Toolbar({ onUpload, onRefresh, onDownloadSelected, onDelete, onC
             placeholder="Search files..."
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') onSearchSubmit(); }}
           />
           {searchQuery && (
             <button style={styles.clearBtn} onClick={() => onSearchChange('')} title="Clear search">&times;</button>
           )}
         </span>
+        <button
+          style={styles.btnGhost}
+          onClick={onSearchSubmit}
+          disabled={loading || !searchQuery.trim()}
+          title="Search the whole current folder on the server (finds files in collapsed folders)"
+        >
+          Search folder
+        </button>
       </div>
       <div style={styles.right}>
         {hasSelection && (

@@ -63,7 +63,7 @@ const SECTIONS: Section[] = [
     heading: 'Browsing',
     items: [
       { icon: '▴', title: 'Sort', desc: 'Click the Name, Size or Modified column headers to sort; click again to reverse.' },
-      { icon: '🔍', title: 'Search', desc: 'Filter the items currently loaded in the tree by name.' },
+      { icon: '🔍', title: 'Search', desc: 'Type to filter the loaded items instantly. Press Enter (or “Search folder”) to search the entire current folder on the server, including collapsed subfolders; results show each file’s full path.' },
       { icon: '🧭', title: 'Breadcrumb & copy path', desc: 'Use the breadcrumb to jump back up the tree; its “Copy path” button copies the current folder’s path.' },
       { icon: '▸', title: 'Expand / Collapse', desc: 'Toggle folders with the arrow, or use Expand All / Collapse All in the toolbar.' },
     ],

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { TreeNode } from '../hooks/useGcs';
+import { getErrorMessage } from '../utils/format';
 import { Breadcrumb } from './Breadcrumb';
 import { Toolbar } from './Toolbar';
 import { FileRow } from './FileRow';
@@ -49,6 +50,13 @@ export function FileBrowser({
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [preview, setPreview] = useState<{ key: string; name: string; size: number } | null>(null);
+  const [searchResults, setSearchResults] = useState<{ key: string; size: number; lastModified: string }[] | null>(null);
+  const [searchTruncated, setSearchTruncated] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  // Navigating away exits server-side search mode
+  useEffect(() => { setSearchResults(null); setSearchError(null); }, [currentPrefix]);
 
   // Prevent Chromium from navigating to dropped files when they land outside a handler
   useEffect(() => {
@@ -234,7 +242,30 @@ export function FileBrowser({
     }
     return keys;
   };
-  const visibleKeys = collectRenderedKeys(renderedRoots);
+  // In server-search mode, selection/select-all operate on the flat result set
+  const visibleKeys = searchResults !== null ? searchResults.map(r => r.key) : collectRenderedKeys(renderedRoots);
+
+  const handleSearchChange = (q: string) => {
+    setSearchQuery(q);
+    if (!q.trim()) { setSearchResults(null); setSearchError(null); }
+  };
+
+  const handleSearchSubmit = async () => {
+    const q = searchQuery.trim();
+    if (!q) { setSearchResults(null); return; }
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const { results, truncated } = await window.gcsApi.search(currentPrefix, q);
+      setSearchResults(results);
+      setSearchTruncated(truncated);
+    } catch (e: unknown) {
+      setSearchResults([]);
+      setSearchError(getErrorMessage(e));
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const handleSelect = (key: string, checked: boolean, shiftKey: boolean) => {
     const idx = visibleKeys.indexOf(key);
@@ -447,8 +478,19 @@ export function FileBrowser({
         onCollapseAll={onCollapseAll}
         targetFolderName={targetLabel}
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
+        onSearchSubmit={handleSearchSubmit}
       />
+      {(searchResults !== null || searching) && (
+        <div style={styles.searchBanner}>
+          <span>
+            {searching
+              ? 'Searching the whole folder…'
+              : `${searchResults!.length} match${searchResults!.length === 1 ? '' : 'es'} for "${searchQuery.trim()}"${searchTruncated ? ' (showing first 1000)' : ''}`}
+          </span>
+          <button style={styles.cancelBtn} onClick={() => { setSearchResults(null); setSearchError(null); setSearchQuery(''); }}>Clear search</button>
+        </div>
+      )}
       {confirmDelete && (
         <div style={styles.confirmBar}>
           <span>Delete <strong>{selected.size}</strong> item(s)? Click "Delete Selected" again to confirm.</span>
@@ -478,14 +520,50 @@ export function FileBrowser({
             </tr>
           </thead>
           <tbody>
-            {renderTree(renderedRoots, 0)}
-            {!loading && (isSearchActive ? renderedRoots.length === 0 : treeData.length === 0) && (
-              <tr>
-                <td colSpan={5} style={styles.empty}>
-                  <div style={{ fontSize: 32, marginBottom: 8, color: '#dfe6e9' }}>{isSearchActive ? '\uD83D\uDD0D' : '\uD83D\uDCC1'}</div>
-                  {isSearchActive ? 'No matching items' : 'This folder is empty'}
-                </td>
-              </tr>
+            {searchResults !== null ? (
+              <>
+                {searchResults.map(r => (
+                  <FileRow
+                    key={r.key}
+                    name={currentPrefix && r.key.startsWith(currentPrefix) ? r.key.slice(currentPrefix.length) : r.key}
+                    objectKey={r.key}
+                    size={r.size}
+                    lastModified={r.lastModified}
+                    isFolder={false}
+                    isSelected={selected.has(r.key)}
+                    currentPrefix={currentPrefix}
+                    depth={0}
+                    hasChildren={false}
+                    onSelect={handleSelect}
+                    onPreview={() => setPreview({ key: r.key, name: r.key.split('/').pop()!, size: r.size })}
+                    onDownload={onDownload}
+                    onMove={onMove}
+                    onCopyToFolder={onCopy}
+                    onDuplicate={onDuplicate}
+                    onDismissDropZone={dismissDropZone}
+                  />
+                ))}
+                {!searching && searchResults.length === 0 && (
+                  <tr>
+                    <td colSpan={5} style={styles.empty}>
+                      <div style={{ fontSize: 32, marginBottom: 8, color: '#dfe6e9' }}>{'\uD83D\uDD0D'}</div>
+                      {searchError ? 'Search failed: ' + searchError : 'No matches in this folder'}
+                    </td>
+                  </tr>
+                )}
+              </>
+            ) : (
+              <>
+                {renderTree(renderedRoots, 0)}
+                {!loading && (isSearchActive ? renderedRoots.length === 0 : treeData.length === 0) && (
+                  <tr>
+                    <td colSpan={5} style={styles.empty}>
+                      <div style={{ fontSize: 32, marginBottom: 8, color: '#dfe6e9' }}>{isSearchActive ? '\uD83D\uDD0D' : '\uD83D\uDCC1'}</div>
+                      {isSearchActive ? 'No matching items' : 'This folder is empty'}
+                    </td>
+                  </tr>
+                )}
+              </>
             )}
           </tbody>
         </table>
@@ -620,6 +698,19 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
     color: '#b2bec3',
     fontSize: 14,
+  },
+  searchBanner: {
+    padding: '8px 16px',
+    background: '#eef0ff',
+    borderRadius: 8,
+    margin: '8px 0',
+    fontSize: 13,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    color: '#4a3fb8',
+    border: '1px solid #d6d0ff',
   },
   confirmBar: {
     padding: '10px 16px',

@@ -129,6 +129,18 @@ ipcMain.handle('gcs:previewFile', async (_event, key: string) => {
   return await gcsClient.downloadItem(key);
 });
 
+// Recursive, server-side search: list every object under the prefix and return the
+// files whose key contains the query. Lets the user find deep files without expanding.
+ipcMain.handle('gcs:search', async (_event, prefix: string, query: string) => {
+  if (!gcsClient) throw new Error('Not connected');
+  const q = query.trim().toLowerCase();
+  if (!q) return { results: [], truncated: false };
+  const all = await gcsClient.listItems(prefix || undefined);
+  const matches = all.filter(o => !o.key.endsWith('/') && o.key.toLowerCase().includes(q));
+  const MAX = 1000;
+  return { results: matches.slice(0, MAX), truncated: matches.length > MAX };
+});
+
 ipcMain.handle('gcs:downloadFolder', async (_event, folderKey: string, savePath: string) => {
   if (!gcsClient) throw new Error('Not connected');
   const folderName = folderKey.replace(/\/$/, '').split('/').pop() || 'folder';
