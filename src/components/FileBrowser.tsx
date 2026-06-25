@@ -4,6 +4,7 @@ import { Breadcrumb } from './Breadcrumb';
 import { Toolbar } from './Toolbar';
 import { FileRow } from './FileRow';
 import { ProgressBar } from './ProgressBar';
+import { HelpModal } from './HelpModal';
 
 type SortField = 'name' | 'size' | 'modified';
 type SortDirection = 'asc' | 'desc';
@@ -45,6 +46,7 @@ export function FileBrowser({
   const [showDropZone, setShowDropZone] = useState(false);
   const dragCounterRef = useRef(0);
   const [progress, setProgress] = useState<ProgressData | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Prevent Chromium from navigating to dropped files when they land outside a handler
   useEffect(() => {
@@ -325,8 +327,14 @@ export function FileBrowser({
       )}
       <div style={styles.header}>
         <Breadcrumb prefix={currentPrefix} onNavigate={onNavigate} />
-        <button style={styles.disconnectBtn} onClick={onDisconnect}>Disconnect</button>
+        <div style={styles.headerActions}>
+          <button style={styles.helpBtn} onClick={() => setShowHelp(true)} title="How drag & drop and the other actions work">
+            <span style={styles.helpIcon}>?</span> Help
+          </button>
+          <button style={styles.disconnectBtn} onClick={onDisconnect}>Disconnect</button>
+        </div>
       </div>
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       <Toolbar
         onUpload={() => onUpload(targetPrefix)}
         onRefresh={onRefresh}
@@ -423,6 +431,35 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     padding: '4px 0',
     borderBottom: '1px solid #eef0f4',
+  },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  helpBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: '6px 12px',
+    background: '#fff',
+    border: '1.5px solid #e0e4ea',
+    borderRadius: 8,
+    fontSize: 12,
+    color: '#636e72',
+    fontWeight: 500,
+  },
+  helpIcon: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 16,
+    height: 16,
+    borderRadius: '50%',
+    background: '#6c5ce7',
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 700,
   },
   disconnectBtn: {
     padding: '6px 14px',
