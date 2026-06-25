@@ -261,6 +261,27 @@ export function useGcs() {
     }
   }, []);
 
+  const downloadSelected = useCallback(async (keys: string[]) => {
+    setError(null);
+    if (keys.length === 0) return;
+    // A single item reuses the existing per-item download (keeps its naming/ZIP behavior)
+    if (keys.length === 1) {
+      await downloadFile(keys[0]);
+      return;
+    }
+    const savePath = await window.gcsApi.saveFileDialog('download.zip');
+    if (!savePath) return;
+
+    setLoading(true);
+    try {
+      await window.gcsApi.downloadSelection(keys, savePath);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [downloadFile]);
+
   const deleteFiles = useCallback(async (keys: string[]) => {
     setLoading(true);
     setError(null);
@@ -453,6 +474,7 @@ export function useGcs() {
     uploadFiles,
     uploadFromPaths,
     downloadFile,
+    downloadSelected,
     deleteFiles,
     moveFile,
     copyFile,

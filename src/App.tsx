@@ -105,6 +105,7 @@ export function App() {
       onUpload={gcs.uploadFiles}
       onRefresh={() => gcs.refreshList()}
       onDownload={gcs.downloadFile}
+      onDownloadSelected={gcs.downloadSelected}
       onDelete={gcs.deleteFiles}
       onMove={gcs.moveFile}
       onCopy={gcs.copyFile}

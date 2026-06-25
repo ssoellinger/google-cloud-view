@@ -3,9 +3,11 @@ import { useState } from 'react';
 interface Props {
   onUpload: () => void;
   onRefresh: () => void;
+  onDownloadSelected: () => void;
   onDelete: () => void;
   onCreateFolder: (name: string) => void;
   hasSelection: boolean;
+  selectionCount?: number;
   loading: boolean;
   onExpandAll: () => void;
   onCollapseAll: () => void;
@@ -14,7 +16,7 @@ interface Props {
   onSearchChange: (query: string) => void;
 }
 
-export function Toolbar({ onUpload, onRefresh, onDelete, onCreateFolder, hasSelection, loading, onExpandAll, onCollapseAll, targetFolderName, searchQuery, onSearchChange }: Props) {
+export function Toolbar({ onUpload, onRefresh, onDownloadSelected, onDelete, onCreateFolder, hasSelection, selectionCount, loading, onExpandAll, onCollapseAll, targetFolderName, searchQuery, onSearchChange }: Props) {
   const [showFolderInput, setShowFolderInput] = useState(false);
   const [folderName, setFolderName] = useState('');
 
@@ -81,6 +83,11 @@ export function Toolbar({ onUpload, onRefresh, onDelete, onCreateFolder, hasSele
         </span>
       </div>
       <div style={styles.right}>
+        {hasSelection && (
+          <button style={styles.btn} onClick={onDownloadSelected} disabled={loading} title="Download selected items">
+            <span style={styles.btnIcon}>&#8595;</span> Download Selected{selectionCount ? ` (${selectionCount})` : ''}
+          </button>
+        )}
         {hasSelection && (
           <button style={styles.dangerBtn} onClick={onDelete} disabled={loading}>
             Delete Selected

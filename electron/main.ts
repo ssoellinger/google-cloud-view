@@ -135,6 +135,56 @@ ipcMain.handle('gcs:downloadFolder', async (_event, folderKey: string, savePath:
   await finished;
 });
 
+ipcMain.handle('gcs:downloadSelection', async (_event, keys: string[], savePath: string) => {
+  if (!gcsClient) throw new Error('Not connected');
+  const zipName = savePath.replace(/\\/g, '/').split('/').pop() || 'download.zip';
+
+  // Drop any selection nested inside another selected folder to avoid duplicate entries
+  const selectedFolders = keys.filter(k => k.endsWith('/'));
+  const roots = keys.filter(k => !selectedFolders.some(f => f !== k && k.startsWith(f)));
+
+  // Resolve every root selection to the concrete files that go into the archive
+  const entries: { key: string; name: string }[] = [];
+  for (const key of roots) {
+    if (key.endsWith('/')) {
+      const folderName = key.replace(/\/$/, '').split('/').pop() || 'folder';
+      const objs = await gcsClient.listItems(key);
+      for (const o of objs) {
+        if (o.key.endsWith('/')) continue;
+        entries.push({ key: o.key, name: folderName + '/' + o.key.slice(key.length) });
+      }
+    } else {
+      entries.push({ key, name: key.split('/').pop()! });
+    }
+  }
+  if (entries.length === 0) throw new Error('No files to download');
+
+  mainWindow?.webContents.send('gcs:progress', {
+    operation: 'download', key: zipName, fileName: zipName, loaded: 0, total: entries.length, percent: 0,
+  });
+
+  const output = createWriteStream(savePath);
+  const archive = archiver('zip', { zlib: { level: 5 } });
+  const finished = new Promise<void>((resolve, reject) => {
+    output.on('close', resolve);
+    archive.on('error', reject);
+  });
+  archive.pipe(output);
+
+  for (let i = 0; i < entries.length; i++) {
+    const buffer = await gcsClient.downloadItem(entries[i].key);
+    archive.append(buffer, { name: entries[i].name });
+    mainWindow?.webContents.send('gcs:progress', {
+      operation: 'download', key: zipName, fileName: zipName,
+      loaded: i + 1, total: entries.length,
+      percent: Math.round(((i + 1) / entries.length) * 100),
+    });
+  }
+
+  await archive.finalize();
+  await finished;
+});
+
 ipcMain.handle('gcs:delete', async (_event, key: string) => {
   if (!gcsClient) throw new Error('Not connected');
   await gcsClient.deleteItem(key);

@@ -18,6 +18,7 @@ interface Props {
   onUpload: (targetPrefix?: string) => void;
   onRefresh: () => void;
   onDownload: (key: string) => void;
+  onDownloadSelected: (keys: string[]) => void;
   onDelete: (keys: string[]) => void;
   onMove: (sourceKey: string, destKey: string) => void;
   onCopy: (sourceKey: string, destKey: string) => void;
@@ -33,7 +34,7 @@ interface Props {
 
 export function FileBrowser({
   treeData, expandedPaths, currentPrefix, loading, error,
-  onNavigate, onUpload, onRefresh, onDownload, onDelete, onMove, onCopy, onDuplicate, onCreateFolder,
+  onNavigate, onUpload, onRefresh, onDownload, onDownloadSelected, onDelete, onMove, onCopy, onDuplicate, onCreateFolder,
   onCreateSubfolder, onUploadFromPaths, onDisconnect, onToggleFolder, onExpandAll, onCollapseAll,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -203,6 +204,11 @@ export function FileBrowser({
     }
   };
 
+  const handleDownloadSelected = () => {
+    if (selected.size === 0) return;
+    onDownloadSelected(Array.from(selected));
+  };
+
   const handleDelete = () => {
     if (!confirmDelete) {
       setConfirmDelete(true);
@@ -324,7 +330,9 @@ export function FileBrowser({
       <Toolbar
         onUpload={() => onUpload(targetPrefix)}
         onRefresh={onRefresh}
+        onDownloadSelected={handleDownloadSelected}
         onDelete={handleDelete}
+        selectionCount={selected.size}
         onCreateFolder={(name) => onCreateFolder(name, targetPrefix)}
         hasSelection={selected.size > 0}
         loading={loading}
