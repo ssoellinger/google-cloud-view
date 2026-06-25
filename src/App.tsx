@@ -32,25 +32,40 @@ export function App() {
     timeout: number;
   }) => {
     const { id, ...fields } = data;
-    if (id) {
-      updateConnection(id, { ...fields, lastUsed: new Date().toISOString() });
-    } else {
-      addConnection({ ...fields, lastUsed: new Date().toISOString() });
+    // Encrypt the secret with the OS keychain before it ever touches localStorage
+    encryptAndSave();
+
+    async function encryptAndSave() {
+      const secret = await window.gcsApi.encryptSecret(fields.secret);
+      const stored = { ...fields, secret, lastUsed: new Date().toISOString() };
+      if (id) {
+        updateConnection(id, stored);
+      } else {
+        addConnection(stored);
+      }
     }
   };
 
   const handleDirectConnect = async (conn: SavedConnection) => {
+    const secret = await window.gcsApi.decryptSecret(conn.secret);
     const success = await gcs.connect({
       serviceUrl: conn.serviceUrl,
       bucketName: conn.bucketName,
       accessId: conn.accessId,
-      secret: conn.secret,
+      secret,
       basePath: conn.basePath,
       timeout: conn.timeout,
     });
     if (success) {
       touchConnection(conn.id);
     }
+  };
+
+  const handleEditConnection = async (conn: SavedConnection) => {
+    // Decrypt so the form can prefill the secret; it is re-encrypted on save
+    const secret = await window.gcsApi.decryptSecret(conn.secret);
+    setEditingConnection({ ...conn, secret });
+    setScreen('connect');
   };
 
   const handleDisconnect = () => {
@@ -64,10 +79,7 @@ export function App() {
       <SavedConnections
         connections={connections}
         onConnect={handleDirectConnect}
-        onEdit={(conn) => {
-          setEditingConnection(conn);
-          setScreen('connect');
-        }}
+        onEdit={handleEditConnection}
         onDelete={removeConnection}
         onNewConnection={() => {
           setEditingConnection(null);

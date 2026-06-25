@@ -27,4 +27,6 @@ contextBridge.exposeInMainWorld('gcsApi', {
   },
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   copyText: (text: string) => ipcRenderer.invoke('clipboard:writeText', text),
+  encryptSecret: (text: string) => ipcRenderer.invoke('secure:encrypt', text),
+  decryptSecret: (text: string) => ipcRenderer.invoke('secure:decrypt', text),
 });

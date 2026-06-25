@@ -38,6 +38,8 @@ interface GcsApi {
   removeProgressListener(handler: any): void;
   getPathForFile(file: File): string;
   copyText(text: string): Promise<void>;
+  encryptSecret(text: string): Promise<string>;
+  decryptSecret(text: string): Promise<string>;
 }
 
 interface Window {

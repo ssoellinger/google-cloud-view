@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, nativeImage, clipboard } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, nativeImage, clipboard, safeStorage } from 'electron';
 import { createWriteStream } from 'fs';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -102,6 +102,25 @@ ipcMain.handle('gcs:download', async (_event, key: string, savePath: string) => 
 
 ipcMain.handle('clipboard:writeText', (_event, text: string) => {
   clipboard.writeText(text);
+});
+
+// Encrypt secrets at rest with the OS keychain (DPAPI / Keychain) so they are not
+// stored in plaintext. Encrypted values carry a marker; anything else is passed
+// through unchanged (legacy plaintext, or platforms without encryption support).
+const ENC_PREFIX = 'enc:v1:';
+
+ipcMain.handle('secure:encrypt', (_event, text: string) => {
+  if (!text || !safeStorage.isEncryptionAvailable()) return text;
+  return ENC_PREFIX + safeStorage.encryptString(text).toString('base64');
+});
+
+ipcMain.handle('secure:decrypt', (_event, text: string) => {
+  if (!text || !text.startsWith(ENC_PREFIX)) return text;
+  try {
+    return safeStorage.decryptString(Buffer.from(text.slice(ENC_PREFIX.length), 'base64'));
+  } catch {
+    return ''; // can't decrypt (e.g. copied from another machine/user) -> force re-entry
+  }
 });
 
 ipcMain.handle('gcs:previewFile', async (_event, key: string) => {

@@ -1,6 +1,6 @@
 {
   "name": "google-cloud-view",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "Google Cloud Storage file browser",
   "main": "dist-electron/main.js",
   "scripts": {
