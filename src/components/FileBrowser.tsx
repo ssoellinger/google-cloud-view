@@ -184,6 +184,26 @@ export function FileBrowser({
     }
   };
 
+  // Declared before sortNodes (which calls these) so they are initialized when
+  // renderedRoots = sortNodes(...) runs synchronously during render — otherwise
+  // sorting two folders by size/modified hits a temporal-dead-zone error.
+  const computeFolderSize = (node: TreeNode): number => {
+    if (!node.isFolder) return node.size;
+    if (!node.children) return 0;
+    return node.children.reduce((sum, child) => sum + computeFolderSize(child), 0);
+  };
+
+  const computeFolderLastModified = (node: TreeNode): string => {
+    if (!node.isFolder) return node.lastModified;
+    if (!node.children) return '';
+    let latest = '';
+    for (const child of node.children) {
+      const childDate = child.isFolder ? computeFolderLastModified(child) : child.lastModified;
+      if (childDate && childDate > latest) latest = childDate;
+    }
+    return latest;
+  };
+
   const sortNodes = (nodes: TreeNode[]): TreeNode[] => {
     const sorted = [...nodes].sort((a, b) => {
       // Folders always before files
@@ -396,23 +416,6 @@ export function FileBrowser({
       const key = Array.from(selected)[0];
       if (key) setRenamingKey(key);
     },
-  };
-
-  const computeFolderSize = (node: TreeNode): number => {
-    if (!node.isFolder) return node.size;
-    if (!node.children) return 0;
-    return node.children.reduce((sum, child) => sum + computeFolderSize(child), 0);
-  };
-
-  const computeFolderLastModified = (node: TreeNode): string => {
-    if (!node.isFolder) return node.lastModified;
-    if (!node.children) return '';
-    let latest = '';
-    for (const child of node.children) {
-      const childDate = child.isFolder ? computeFolderLastModified(child) : child.lastModified;
-      if (childDate && childDate > latest) latest = childDate;
-    }
-    return latest;
   };
 
   const renderTree = (nodes: TreeNode[], depth: number): React.ReactNode[] => {
