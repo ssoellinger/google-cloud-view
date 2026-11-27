@@ -19,13 +19,12 @@ contextBridge.exposeInMainWorld('gcsApi', {
   createFolder: (key: string) => ipcRenderer.invoke('gcs:createFolder', key),
   openFileDialog: () => ipcRenderer.invoke('dialog:openFile'),
   saveFileDialog: (defaultName: string) => ipcRenderer.invoke('dialog:saveFile', defaultName),
+  // Returns an unsubscribe function. The handler itself can't be handed back across the
+  // contextBridge (function proxies lose identity), so removal must happen in this world.
   onProgress: (callback: (data: any) => void) => {
     const handler = (_event: any, data: any) => callback(data);
     ipcRenderer.on('gcs:progress', handler);
-    return handler;
-  },
-  removeProgressListener: (handler: any) => {
-    ipcRenderer.removeListener('gcs:progress', handler);
+    return () => { ipcRenderer.removeListener('gcs:progress', handler); };
   },
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   copyText: (text: string) => ipcRenderer.invoke('clipboard:writeText', text),

@@ -14,6 +14,12 @@ export class GcsClient {
     this.parser = new XMLParser({
       ignoreAttributes: false,
       removeNSPrefix: true,
+      // Object keys must come back byte-exact: don't turn "2024"/"001" into numbers,
+      // don't trim leading/trailing spaces, and decode numeric character references
+      // (S3 lists escape control characters such as CR as &#13;).
+      parseTagValue: false,
+      trimValues: false,
+      htmlEntities: true,
     });
   }
 
@@ -142,10 +148,10 @@ export class GcsClient {
         });
       }
 
-      const isTruncated = root.IsTruncated === true || root.IsTruncated === 'true';
+      const isTruncated = String(root.IsTruncated).trim() === 'true';
       if (!isTruncated) break;
 
-      continuationToken = root.NextContinuationToken;
+      continuationToken = root.NextContinuationToken?.trim();
       if (!continuationToken) {
         throw new Error('Response is truncated but no NextContinuationToken was provided.');
       }
@@ -199,10 +205,10 @@ export class GcsClient {
         folders.push(p.Prefix);
       }
 
-      const isTruncated = root.IsTruncated === true || root.IsTruncated === 'true';
+      const isTruncated = String(root.IsTruncated).trim() === 'true';
       if (!isTruncated) break;
 
-      continuationToken = root.NextContinuationToken;
+      continuationToken = root.NextContinuationToken?.trim();
       if (!continuationToken) {
         throw new Error('Response is truncated but no NextContinuationToken was provided.');
       }

@@ -76,16 +76,20 @@ export function FileBrowser({
   }, []);
 
   useEffect(() => {
-    const handler = window.gcsApi.onProgress((data: ProgressData) => {
+    let clearTimer: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = window.gcsApi.onProgress((data: ProgressData) => {
+      // A newer event always wins over a pending "hide after 100%" from an earlier operation
+      clearTimeout(clearTimer);
+      setProgress(data);
       if (data.percent >= 100) {
         // Keep showing 100% briefly, then clear
-        setProgress(data);
-        setTimeout(() => setProgress(null), 800);
-      } else {
-        setProgress(data);
+        clearTimer = setTimeout(() => setProgress(null), 800);
       }
     });
-    return () => window.gcsApi.removeProgressListener(handler);
+    return () => {
+      clearTimeout(clearTimer);
+      unsubscribe();
+    };
   }, []);
 
   // Latest state/handlers for the global keyboard listener (avoids stale closures)

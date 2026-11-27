@@ -1,6 +1,6 @@
 {
   "name": "google-cloud-view",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "description": "Google Cloud Storage file browser",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -11,25 +11,26 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "archiver": "^7.0.1",
-    "fast-xml-parser": "^4.5.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "archiver": "^8.0.0",
+    "fast-xml-parser": "^5.12.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@types/archiver": "^7.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.3.4",
-    "electron": "^33.2.1",
-    "electron-builder": "^25.1.8",
-    "jsdom": "^28.1.0",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.5",
-    "vite-plugin-electron": "^0.28.8",
-    "vite-plugin-electron-renderer": "^0.14.6",
-    "vitest": "^4.0.18"
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^8.0.0",
+    "@testing-library/react": "^16.3.3",
+    "@types/archiver": "^8.0.0",
+    "@types/react": "^19.3.3",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^45.5.0",
+    "electron-builder": "^26.18.0",
+    "jsdom": "^31.0.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.4.0",
+    "vite-plugin-electron": "^1.2.0",
+    "vite-plugin-electron-renderer": "^1.0.0",
+    "vitest": "^5.1.2"
   }
 }

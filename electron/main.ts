@@ -1,10 +1,10 @@
 import { app, BrowserWindow, ipcMain, dialog, nativeImage, clipboard, safeStorage } from 'electron';
-import { createWriteStream } from 'fs';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import archiver from 'archiver';
 import { GcsClient } from './gcs/gcs-client';
 import { expandUploadPaths } from './gcs/upload-paths';
+import { uniqueZipName } from './gcs/zip-names';
+import { writeZip } from './gcs/zip-writer';
 import { APP_ICON_DATA_URL } from './app-icon';
 import type { StorageBlobConfig } from './gcs/gcs-types';
 
@@ -177,36 +177,20 @@ ipcMain.handle('gcs:search', async (_event, prefix: string, query: string) => {
 ipcMain.handle('gcs:downloadFolder', async (_event, folderKey: string, savePath: string) => {
   if (!gcsClient) throw new Error('Not connected');
   const folderName = folderKey.replace(/\/$/, '').split('/').pop() || 'folder';
+
   const allObjects = await gcsClient.listItems(folderKey);
-  const files = allObjects.filter(o => !o.key.endsWith('/'));
-  if (files.length === 0) throw new Error('Folder is empty');
+  const entries = allObjects
+    .filter(o => !o.key.endsWith('/'))
+    .map(o => ({ key: o.key, name: o.key.slice(folderKey.length) }));
+  if (entries.length === 0) throw new Error('Folder is empty');
 
-  mainWindow?.webContents.send('gcs:progress', {
-    operation: 'download', key: folderKey, fileName: folderName + '.zip', loaded: 0, total: files.length, percent: 0,
+  const fileName = folderName + '.zip';
+  const send = (loaded: number) => mainWindow?.webContents.send('gcs:progress', {
+    operation: 'download', key: folderKey, fileName, loaded, total: entries.length,
+    percent: Math.round((loaded / entries.length) * 100),
   });
-
-  const output = createWriteStream(savePath);
-  const archive = archiver('zip', { zlib: { level: 5 } });
-  const finished = new Promise<void>((resolve, reject) => {
-    output.on('close', resolve);
-    archive.on('error', reject);
-  });
-  archive.pipe(output);
-
-  for (let i = 0; i < files.length; i++) {
-    const obj = files[i];
-    const relativePath = obj.key.slice(folderKey.length);
-    const buffer = await gcsClient.downloadItem(obj.key);
-    archive.append(buffer, { name: relativePath });
-    mainWindow?.webContents.send('gcs:progress', {
-      operation: 'download', key: folderKey, fileName: folderName + '.zip',
-      loaded: i + 1, total: files.length,
-      percent: Math.round(((i + 1) / files.length) * 100),
-    });
-  }
-
-  await archive.finalize();
-  await finished;
+  send(0);
+  await writeZip(savePath, entries, key => gcsClient!.downloadItem(key), send);
 });
 
 ipcMain.handle('gcs:downloadSelection', async (_event, keys: string[], savePath: string) => {
@@ -217,46 +201,31 @@ ipcMain.handle('gcs:downloadSelection', async (_event, keys: string[], savePath:
   const selectedFolders = keys.filter(k => k.endsWith('/'));
   const roots = keys.filter(k => !selectedFolders.some(f => f !== k && k.startsWith(f)));
 
-  // Resolve every root selection to the concrete files that go into the archive
+  // Resolve every root selection to the concrete files that go into the archive. Roots can
+  // come from different folders (e.g. search results), so their top-level names are made
+  // unique to keep one entry from overwriting another on extraction.
+  const usedNames = new Set<string>();
   const entries: { key: string; name: string }[] = [];
   for (const key of roots) {
     if (key.endsWith('/')) {
-      const folderName = key.replace(/\/$/, '').split('/').pop() || 'folder';
+      const folderName = uniqueZipName(key.replace(/\/$/, '').split('/').pop() || 'folder', usedNames, true);
       const objs = await gcsClient.listItems(key);
       for (const o of objs) {
         if (o.key.endsWith('/')) continue;
         entries.push({ key: o.key, name: folderName + '/' + o.key.slice(key.length) });
       }
     } else {
-      entries.push({ key, name: key.split('/').pop()! });
+      entries.push({ key, name: uniqueZipName(key.split('/').pop()!, usedNames) });
     }
   }
   if (entries.length === 0) throw new Error('No files to download');
 
-  mainWindow?.webContents.send('gcs:progress', {
-    operation: 'download', key: zipName, fileName: zipName, loaded: 0, total: entries.length, percent: 0,
+  const send = (loaded: number) => mainWindow?.webContents.send('gcs:progress', {
+    operation: 'download', key: zipName, fileName: zipName, loaded, total: entries.length,
+    percent: Math.round((loaded / entries.length) * 100),
   });
-
-  const output = createWriteStream(savePath);
-  const archive = archiver('zip', { zlib: { level: 5 } });
-  const finished = new Promise<void>((resolve, reject) => {
-    output.on('close', resolve);
-    archive.on('error', reject);
-  });
-  archive.pipe(output);
-
-  for (let i = 0; i < entries.length; i++) {
-    const buffer = await gcsClient.downloadItem(entries[i].key);
-    archive.append(buffer, { name: entries[i].name });
-    mainWindow?.webContents.send('gcs:progress', {
-      operation: 'download', key: zipName, fileName: zipName,
-      loaded: i + 1, total: entries.length,
-      percent: Math.round(((i + 1) / entries.length) * 100),
-    });
-  }
-
-  await archive.finalize();
-  await finished;
+  send(0);
+  await writeZip(savePath, entries, key => gcsClient!.downloadItem(key), send);
 });
 
 // 1x1 transparent PNG, used only if a native file-type icon can't be resolved

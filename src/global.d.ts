@@ -39,8 +39,8 @@ interface GcsApi {
   createFolder(key: string): Promise<void>;
   openFileDialog(): Promise<string[] | null>;
   saveFileDialog(defaultName: string): Promise<string | null>;
-  onProgress(callback: (data: ProgressData) => void): any;
-  removeProgressListener(handler: any): void;
+  /** Subscribes to progress events; returns an unsubscribe function. */
+  onProgress(callback: (data: ProgressData) => void): () => void;
   getPathForFile(file: File): string;
   copyText(text: string): Promise<void>;
   encryptSecret(text: string): Promise<string>;

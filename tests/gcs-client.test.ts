@@ -263,3 +263,68 @@ describe('GcsClient', () => {
     });
   });
 });
+
+describe('GcsClient XML listing', () => {
+  function clientReturning(xml: string) {
+    const client = new GcsClient(config);
+    (client as any).sendRequest = vi.fn(async () => ({
+      ok: true, status: 200, text: async () => xml, headers: new Headers(),
+    }));
+    return client;
+  }
+
+  const listXml = `<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <IsTruncated>false</IsTruncated>
+  <Contents><Key>2024</Key><Size>10</Size><LastModified>2026-01-01T00:00:00.000Z</LastModified></Contents>
+  <Contents><Key>001</Key><Size>5</Size><LastModified>2026-01-01T00:00:00.000Z</LastModified></Contents>
+  <CommonPrefixes><Prefix>123/</Prefix></CommonPrefixes>
+</ListBucketResult>`;
+
+  it('keeps purely numeric object keys as exact strings (listItems)', async () => {
+    const items = await clientReturning(listXml).listItems();
+    expect(items.map(i => i.key)).toEqual(['2024', '001']);
+    expect(items[0].size).toBe(10);
+  });
+
+  it('keeps purely numeric object keys as exact strings (listFolders)', async () => {
+    const res = await clientReturning(listXml).listFolders();
+    const keys = JSON.stringify(res);
+    expect(keys).toContain('"2024"');
+    expect(keys).toContain('"001"');
+    expect(keys).toContain('"123/"');
+  });
+});
+
+describe('GcsClient XML exact keys', () => {
+  it('keeps surrounding spaces and decodes character references in keys', async () => {
+    const xml = `<?xml version="1.0"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <IsTruncated>false</IsTruncated>
+  <Contents><Key> report.pdf </Key><Size>1</Size></Contents>
+  <Contents><Key>a&#13;b &amp; c</Key><Size>2</Size></Contents>
+</ListBucketResult>`;
+    const client = new GcsClient(config);
+    (client as any).sendRequest = vi.fn(async () => ({ ok: true, status: 200, text: async () => xml, headers: new Headers() }));
+    const items = await client.listItems();
+    expect(items.map(i => i.key)).toEqual([' report.pdf ', 'a\rb & c']);
+  });
+
+  it('follows continuation tokens across pages', async () => {
+    const page = (keys: string[], token?: string) => `<ListBucketResult>
+  <IsTruncated>${token ? 'true' : 'false'}</IsTruncated>
+  ${keys.map(k => `<Contents><Key>${k}</Key><Size>1</Size></Contents>`).join('')}
+  ${token ? `<NextContinuationToken>${token}</NextContinuationToken>` : ''}
+</ListBucketResult>`;
+    const pages = [page(['a'], 'tok1'), page(['b'])];
+    const client = new GcsClient(config);
+    const urls: string[] = [];
+    (client as any).sendRequest = vi.fn(async (_m: string, url: string) => {
+      urls.push(url);
+      return { ok: true, status: 200, text: async () => pages.shift()!, headers: new Headers() };
+    });
+    const items = await client.listItems();
+    expect(items.map(i => i.key)).toEqual(['a', 'b']);
+    expect(urls[1]).toContain('continuation-token=tok1');
+  });
+});
